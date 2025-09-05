@@ -1,0 +1,241 @@
+#!/usr/bin/env python3
+"""DexiNed → SD1.5 + ControlNet(Lineart) Pipeline GUI."""
+
+from __future__ import annotations
+
+import threading
+import tkinter as tk
+from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
+
+from src.pipeline import prefetch_models, process_folder
+
+
+class App(tk.Tk):
+    """Tkinter GUI for batch line-art generation."""
+
+    def __init__(self) -> None:
+        """Initialize window, variables and widgets."""
+        super().__init__()
+        self.title("Dexi LineArt Max (SD1.5 + ControlNet) – Batch GUI")
+        self.geometry("820x720")
+
+        self.inp_var = tk.StringVar()
+        self.out_var = tk.StringVar()
+
+        self.use_sd = tk.BooleanVar(value=True)
+        self.save_svg = tk.BooleanVar(value=True)
+
+        self.steps = tk.IntVar(value=32)
+        self.guidance = tk.DoubleVar(value=6.0)
+        self.ctrl = tk.DoubleVar(value=1.0)
+        self.strength = tk.DoubleVar(value=0.70)
+        self.seed = tk.IntVar(value=42)
+        self.max_long = tk.IntVar(value=896)
+
+        self._build()
+
+        self.running = False
+        self.worker: threading.Thread | None = None
+
+    def _build(self) -> None:
+        pad = {"padx": 8, "pady": 6}
+
+        frm_paths = ttk.LabelFrame(self, text="Ordner")
+        frm_paths.pack(fill="x", **pad)
+
+        ttk.Label(frm_paths, text="Eingabe:").grid(row=0, column=0, sticky="e")
+        ttk.Entry(frm_paths, textvariable=self.inp_var, width=70).grid(row=0, column=1, sticky="we")
+        ttk.Button(frm_paths, text="…", command=self.pick_inp).grid(row=0, column=2)
+
+        ttk.Label(frm_paths, text="Ausgabe:").grid(row=1, column=0, sticky="e")
+        ttk.Entry(frm_paths, textvariable=self.out_var, width=70).grid(row=1, column=1, sticky="we")
+        ttk.Button(frm_paths, text="…", command=self.pick_out).grid(row=1, column=2)
+
+        frm_opts = ttk.LabelFrame(self, text="Optionen")
+        frm_opts.pack(fill="x", **pad)
+
+        ttk.Checkbutton(
+            frm_opts,
+            text="SD-Refinement (SD1.5 + ControlNet Lineart)",
+            variable=self.use_sd,
+        ).grid(
+            row=0,
+            column=0,
+            sticky="w",
+            columnspan=3,
+        )
+        ttk.Checkbutton(
+            frm_opts,
+            text="SVG speichern (VTracer)",
+            variable=self.save_svg,
+        ).grid(
+            row=0,
+            column=3,
+            sticky="w",
+        )
+
+        ttk.Label(frm_opts, text="Steps").grid(row=1, column=0, sticky="e")
+        ttk.Entry(frm_opts, textvariable=self.steps, width=6).grid(row=1, column=1, sticky="w")
+        ttk.Label(frm_opts, text="Guidance").grid(row=1, column=2, sticky="e")
+        ttk.Entry(frm_opts, textvariable=self.guidance, width=6).grid(row=1, column=3, sticky="w")
+        ttk.Label(frm_opts, text="Ctrl-Scale").grid(row=1, column=4, sticky="e")
+        ttk.Entry(frm_opts, textvariable=self.ctrl, width=6).grid(row=1, column=5, sticky="w")
+
+        ttk.Label(frm_opts, text="Strength (img2img)").grid(row=2, column=0, sticky="e")
+        ttk.Entry(frm_opts, textvariable=self.strength, width=6).grid(row=2, column=1, sticky="w")
+        ttk.Label(frm_opts, text="Seed").grid(row=2, column=2, sticky="e")
+        ttk.Entry(frm_opts, textvariable=self.seed, width=8).grid(row=2, column=3, sticky="w")
+        ttk.Label(frm_opts, text="Max lange Kante (px)").grid(row=2, column=4, sticky="e")
+        ttk.Entry(frm_opts, textvariable=self.max_long, width=6).grid(row=2, column=5, sticky="w")
+
+        frm_presets = ttk.LabelFrame(self, text="Presets")
+        frm_presets.pack(fill="x", **pad)
+
+        ttk.Button(
+            frm_presets, text="Technische Strichzeichnung", command=self.preset_technical
+        ).grid(row=0, column=0, padx=4, pady=4, sticky="w")
+        ttk.Button(frm_presets, text="Natürliche Lineart", command=self.preset_natural).grid(
+            row=0, column=1, padx=4, pady=4, sticky="w"
+        )
+
+        frm_actions = ttk.Frame(self)
+        frm_actions.pack(fill="x", **pad)
+
+        btn_prefetch = ttk.Button(
+            frm_actions,
+            text="Modelle jetzt herunterladen",
+            command=self.prefetch,
+        )
+        btn_prefetch.pack(side="left")
+        btn_start = ttk.Button(
+            frm_actions,
+            text="Start",
+            command=self.start,
+        )
+        btn_start.pack(side="left", padx=10)
+        btn_stop = ttk.Button(
+            frm_actions,
+            text="Stopp",
+            command=self.stop,
+        )
+        btn_stop.pack(side="left")
+
+        frm_log = ttk.LabelFrame(self, text="Log")
+        frm_log.pack(fill="both", expand=True, **pad)
+        self.txt: tk.Text = tk.Text(frm_log, height=20)
+        self.txt.pack(fill="both", expand=True)
+
+    # --- Preset-Setter ---
+    def preset_technical(self) -> None:
+        """Technische Strichzeichnung: einheitliche Konturen, klare Kanten."""
+        self.use_sd.set(True)
+        self.save_svg.set(True)
+        self.steps.set(36)
+        self.guidance.set(6.5)
+        self.ctrl.set(1.10)
+        self.strength.set(0.65)
+        self.seed.set(42)
+        self.max_long.set(896)
+        self.log("Preset geladen: Technische Strichzeichnung")
+
+    def preset_natural(self) -> None:
+        """Natürliche Lineart: Hintergrund erhalten, weichere Linien."""
+        self.use_sd.set(True)
+        self.save_svg.set(True)
+        self.steps.set(32)
+        self.guidance.set(5.8)
+        self.ctrl.set(0.95)
+        self.strength.set(0.70)
+        self.seed.set(42)
+        self.max_long.set(896)
+        self.log("Preset geladen: Natürliche Lineart")
+
+    def pick_inp(self) -> None:
+        """Ask the user for an input directory."""
+        p = filedialog.askdirectory(title="Eingabeordner wählen")
+        if p:
+            self.inp_var.set(p)
+
+    def pick_out(self) -> None:
+        """Ask the user for an output directory."""
+        p = filedialog.askdirectory(title="Ausgabeordner wählen")
+        if p:
+            self.out_var.set(p)
+
+    def log(self, s: str) -> None:
+        """Append a message to the log widget."""
+        self.txt.insert("end", s + "\n")
+        self.txt.see("end")
+        self.update_idletasks()
+
+    def prefetch(self) -> None:
+        """Download models in a background thread."""
+
+        def job() -> None:
+            try:
+                prefetch_models(self.log)
+                messagebox.showinfo("Fertig", "Alle Modelle sind lokal verfügbar.")
+            except Exception as e:  # pylint: disable=broad-except
+                messagebox.showerror("Fehler beim Herunterladen", str(e))
+
+        threading.Thread(target=job, daemon=True).start()
+
+    def start(self) -> None:
+        """Start processing in a background thread."""
+        if self.running:
+            return
+        inp, out = Path(self.inp_var.get()), Path(self.out_var.get())
+        if not inp.exists():
+            messagebox.showwarning("Fehler", "Bitte Eingabeordner wählen.")
+            return
+        if not out.exists():
+            try:
+                out.mkdir(parents=True, exist_ok=True)
+            except Exception as e:  # pylint: disable=broad-except
+                messagebox.showerror("Fehler", f"Ausgabeordner kann nicht erstellt werden:\n{e}")
+                return
+
+        cfg = dict(
+            use_sd=self.use_sd.get(),
+            save_svg=self.save_svg.get(),
+            steps=int(self.steps.get()),
+            guidance=float(self.guidance.get()),
+            ctrl=float(self.ctrl.get()),
+            strength=float(self.strength.get()),
+            seed=int(self.seed.get()),
+            max_long=int(self.max_long.get()),
+        )
+
+        self.running = True
+        self.log("Starte Verarbeitung …")
+
+        def job() -> None:
+            try:
+                process_folder(inp, out, cfg, self.log, self.done)
+            except Exception as e:  # pylint: disable=broad-except
+                self.log(f"FEHLER: {e}")
+                self.done()
+
+        self.worker = threading.Thread(target=job, daemon=True)
+        self.worker.start()
+
+    def stop(self) -> None:
+        """Request that processing stop after the current image."""
+        self.running = False
+        self.log("Stop angefordert (nach aktuellem Bild).")
+
+    def done(self) -> None:
+        """Mark the current job as finished."""
+        self.running = False
+        self.log("Fertig.")
+
+
+def main() -> None:
+    """Start the Dexi LineArt GUI."""
+    app = App()
+    app.mainloop()
+
+
+if __name__ == "__main__":
+    main()
