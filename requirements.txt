@@ -1,3 +1,18 @@
+# Runtime dependencies
+torch
+diffusers
+transformers
+accelerate
+safetensors
+controlnet-aux
+pillow
+opencv-python
+scikit-image
+numpy
+xformers
+vtracer
+
+# Development tools
 black
 ruff
 basedpyright

@@ -37,3 +37,15 @@ pip install xformers
 
 # Optional: SVG-Vektorisierung
 pip install vtracer
+```
+
+## Nutzung
+
+Starte die GUI nach Installation der Abhängigkeiten:
+
+```bash
+python dexi_gui.py
+```
+
+Ein Fenster ermöglicht das Auswählen von Eingabe- und Ausgabeordnern,
+das Setzen der Optionen sowie den Start der Batch-Verarbeitung.
