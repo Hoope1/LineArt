@@ -3,12 +3,18 @@
 
 from __future__ import annotations
 
+import logging
+import os
+import queue
 import threading
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from src.pipeline import prefetch_models, process_folder
+from src.pipeline import detect_device, prefetch_models, process_folder
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(__name__)
 
 
 class App(tk.Tk):
@@ -32,6 +38,11 @@ class App(tk.Tk):
         self.strength = tk.DoubleVar(value=0.70)
         self.seed = tk.IntVar(value=42)
         self.max_long = tk.IntVar(value=896)
+
+        self.log_queue: queue.Queue[str] = queue.Queue()
+        self.after(100, self.process_log_queue)
+        self.stop_event = threading.Event()
+        self.progress_total = 0
 
         self._build()
 
@@ -102,24 +113,27 @@ class App(tk.Tk):
         frm_actions = ttk.Frame(self)
         frm_actions.pack(fill="x", **pad)
 
-        btn_prefetch = ttk.Button(
+        self.btn_prefetch = ttk.Button(
             frm_actions,
             text="Modelle jetzt herunterladen",
             command=self.prefetch,
         )
-        btn_prefetch.pack(side="left")
-        btn_start = ttk.Button(
+        self.btn_prefetch.pack(side="left")
+        self.btn_start = ttk.Button(
             frm_actions,
             text="Start",
             command=self.start,
         )
-        btn_start.pack(side="left", padx=10)
-        btn_stop = ttk.Button(
+        self.btn_start.pack(side="left", padx=10)
+        self.btn_stop = ttk.Button(
             frm_actions,
             text="Stopp",
             command=self.stop,
         )
-        btn_stop.pack(side="left")
+        self.btn_stop.pack(side="left")
+
+        self.pbar = ttk.Progressbar(frm_actions, mode="determinate")
+        self.pbar.pack(fill="x", expand=True, padx=10)
 
         frm_log = ttk.LabelFrame(self, text="Log")
         frm_log.pack(fill="both", expand=True, **pad)
@@ -164,10 +178,24 @@ class App(tk.Tk):
             self.out_var.set(p)
 
     def log(self, s: str) -> None:
-        """Append a message to the log widget."""
-        self.txt.insert("end", s + "\n")
-        self.txt.see("end")
-        self.update_idletasks()
+        """Enqueue a log message from any thread."""
+        self.log_queue.put(("log", s))
+
+    def progress(self, cur: int, total: int, _path: Path) -> None:
+        """Enqueue progress update."""
+        self.log_queue.put(("progress", cur, total))
+
+    def process_log_queue(self) -> None:
+        """Handle queued log and progress events."""
+        while not self.log_queue.empty():
+            msg = self.log_queue.get()
+            if msg[0] == "log":
+                self.txt.insert("end", msg[1] + "\n")
+                self.txt.see("end")
+            elif msg[0] == "progress":
+                _, cur, total = msg
+                self.pbar.config(maximum=total, value=cur)
+        self.after(100, self.process_log_queue)
 
     def prefetch(self) -> None:
         """Download models in a background thread."""
@@ -195,6 +223,12 @@ class App(tk.Tk):
             except Exception as e:  # pylint: disable=broad-except
                 messagebox.showerror("Fehler", f"Ausgabeordner kann nicht erstellt werden:\n{e}")
                 return
+        if not os.access(out, os.W_OK):
+            messagebox.showerror("Fehler", "Keine Schreibrechte im Ausgabeordner")
+            return
+
+        if detect_device() != "cuda":
+            messagebox.showwarning("Warnung", "CUDA nicht verfügbar – CPU wird langsam sein.")
 
         cfg = dict(
             use_sd=self.use_sd.get(),
@@ -208,11 +242,16 @@ class App(tk.Tk):
         )
 
         self.running = True
+        self.stop_event.clear()
+        self.pbar.config(value=0)
+        self.btn_start.config(state="disabled")
+        self.btn_prefetch.config(state="disabled")
+        self.btn_stop.config(state="normal")
         self.log("Starte Verarbeitung …")
 
         def job() -> None:
             try:
-                process_folder(inp, out, cfg, self.log, self.done)
+                process_folder(inp, out, cfg, self.log, self.done, self.stop_event, self.progress)
             except Exception as e:  # pylint: disable=broad-except
                 self.log(f"FEHLER: {e}")
                 self.done()
@@ -223,11 +262,15 @@ class App(tk.Tk):
     def stop(self) -> None:
         """Request that processing stop after the current image."""
         self.running = False
+        self.stop_event.set()
         self.log("Stop angefordert (nach aktuellem Bild).")
 
     def done(self) -> None:
         """Mark the current job as finished."""
         self.running = False
+        self.btn_start.config(state="normal")
+        self.btn_prefetch.config(state="normal")
+        self.btn_stop.config(state="disabled")
         self.log("Fertig.")
 
 

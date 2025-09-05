@@ -83,38 +83,38 @@ pydocstyle src/
 - [x] Globale Variablen (_dexi, _pipe) durch Singleton-Pattern oder Lazy-Loading ersetzen (lru_cache verwendet)
 
 ## 2. PERFORMANCE-OPTIMIERUNGEN
-- [ ] `torch.inference_mode()` Kontext-Manager für alle Modell-Inferenzen einbauen
-- [ ] `torch.autocast()` mit device-spezifischen dtype (fp16 für CUDA, fp32 für CPU) implementieren
-- [ ] Device-Detection-Funktion schreiben: erst CUDA prüfen, dann MPS (Apple), dann CPU-Fallback
-- [ ] Memory-Settings für SD-Pipeline: `pipe.enable_attention_slicing(slice_size="auto")`
-- [ ] VAE-Optimierungen: `pipe.enable_vae_slicing()` und `pipe.enable_vae_tiling()`
-- [ ] CPU-Offloading aktivieren: `pipe.enable_model_cpu_offload()` wenn CUDA verfügbar
-- [ ] Sequential CPU-Offloading für low-memory: `pipe.enable_sequential_cpu_offload()`
-- [ ] Deterministische Seeds: `torch.Generator(device).manual_seed(seed)` für jeden Inference-Call
-- [ ] Dtype-Detection implementieren: `torch.float16` für CUDA, `torch.bfloat16` für neuere CPUs, sonst `torch.float32`
+- [x] `torch.inference_mode()` Kontext-Manager für alle Modell-Inferenzen einbauen
+- [x] `torch.autocast()` mit device-spezifischen dtype (fp16 für CUDA, fp32 für CPU) implementieren
+- [x] Device-Detection-Funktion schreiben: erst CUDA prüfen, dann MPS (Apple), dann CPU-Fallback
+- [x] Memory-Settings für SD-Pipeline: `pipe.enable_attention_slicing(slice_size="auto")`
+- [x] VAE-Optimierungen: `pipe.enable_vae_slicing()` und `pipe.enable_vae_tiling()`
+- [x] CPU-Offloading aktivieren: `pipe.enable_model_cpu_offload()` wenn CUDA verfügbar
+- [x] Sequential CPU-Offloading für low-memory: `pipe.enable_sequential_cpu_offload()`
+- [x] Deterministische Seeds: `torch.Generator(device).manual_seed(seed)` für jeden Inference-Call
+- [x] Dtype-Detection implementieren: `torch.float16` für CUDA, `torch.bfloat16` für neuere CPUs, sonst `torch.float32`
 - [ ] Batch-Processing für mehrere Bilder gleichzeitig (wenn genug VRAM)
 
 ## 3. THREAD-SAFETY UND GUI-STABILITÄT
-- [ ] Logging-Setup in main.py: `logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')`
-- [ ] Logger-Instanzen für jedes Modul: `logger = logging.getLogger(__name__)`
-- [ ] Queue für Thread-safe GUI-Updates: `self.log_queue = queue.Queue()`
-- [ ] Log-Queue-Processor als Timer-Event (alle 100ms): `self.after(100, self.process_log_queue)`
-- [ ] Threading.Event für Stop-Signal: `self.stop_event = threading.Event()`
-- [ ] Stop-Event in process_folder-Loop prüfen: `if self.stop_event.is_set(): break`
-- [ ] Button-States korrekt verwalten: Start/Stop/Prefetch disabled während Operationen
-- [ ] Alle langläufigen Operationen in daemon-Threads: `threading.Thread(target=job, daemon=True).start()`
-- [ ] Progress-Updates über Queue senden: aktuelle Bildnummer, Gesamtanzahl, Dateiname
-- [ ] GUI-Updates nur im Main-Thread via `self.after(0, lambda: widget.config(...))`
+- [x] Logging-Setup in main.py: `logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')`
+- [x] Logger-Instanzen für jedes Modul: `logger = logging.getLogger(__name__)`
+- [x] Queue für Thread-safe GUI-Updates: `self.log_queue = queue.Queue()`
+- [x] Log-Queue-Processor als Timer-Event (alle 100ms): `self.after(100, self.process_log_queue)`
+- [x] Threading.Event für Stop-Signal: `self.stop_event = threading.Event()`
+- [x] Stop-Event in process_folder-Loop prüfen: `if self.stop_event.is_set(): break`
+- [x] Button-States korrekt verwalten: Start/Stop/Prefetch disabled während Operationen
+- [x] Alle langläufigen Operationen in daemon-Threads: `threading.Thread(target=job, daemon=True).start()`
+- [x] Progress-Updates über Queue senden: aktuelle Bildnummer, Gesamtanzahl, Dateiname
+- [x] GUI-Updates nur im Main-Thread via `self.after(0, lambda: widget.config(...))`
 
 ## 4. FEHLERBEHANDLUNG UND ROBUSTHEIT
 - [ ] Try-except um Modell-Downloads mit spezifischen Fehlermeldungen (ConnectionError, HTTPError, OSError)
-- [ ] Bildvalidierung: Mindestgröße 64x64, Maximalgröße 4096x4096, unterstützte Formate (.jpg, .png, .webp)
-- [ ] Korrupte Bilder abfangen: try-except um PIL.Image.open() mit verify()
-- [ ] Schreibrechte prüfen: `os.access(output_dir, os.W_OK)` vor Verarbeitung
+- [x] Bildvalidierung: Mindestgröße 64x64, Maximalgröße 4096x4096, unterstützte Formate (.jpg, .png, .webp)
+- [x] Korrupte Bilder abfangen: try-except um PIL.Image.open() mit verify()
+- [x] Schreibrechte prüfen: `os.access(output_dir, os.W_OK)` vor Verarbeitung
 - [ ] OOM-Handling: except torch.cuda.OutOfMemoryError mit Hinweis auf Bildgröße/Batch-Size
 - [ ] Netzwerk-Fallback: Bei Download-Fehler auf lokale Modell-Pfade hinweisen
-- [ ] CUDA-Verfügbarkeit: Explizite Meldung wenn nur CPU verfügbar (Warnung vor langer Laufzeit)
-- [ ] Disk-Space-Check: Prüfen ob genug Speicherplatz für Outputs vorhanden
+- [x] CUDA-Verfügbarkeit: Explizite Meldung wenn nur CPU verfügbar (Warnung vor langer Laufzeit)
+- [x] Disk-Space-Check: Prüfen ob genug Speicherplatz für Outputs vorhanden
 - [ ] Modell-Loading-Fallbacks: Bei Fehler alternative Modell-IDs oder lokale Pfade versuchen
 - [ ] Graceful Shutdown: Ressourcen in finally-Blöcken freigeben, Modelle aus VRAM entladen
 
@@ -131,13 +131,13 @@ pydocstyle src/
 - [ ] F-Strings statt .format() oder %-Formatierung verwenden
 
 ## 6. DOKUMENTATION UND USABILITY
-- [ ] README.md Struktur: Installation → Quickstart → Features → Parameter → Troubleshooting → Lizenz
+- [x] README.md Struktur: Installation → Quickstart → Features → Parameter → Troubleshooting → Lizenz
 - [ ] Screenshots der GUI mit Annotationen für jeden Bereich einfügen
 - [ ] Modell-Links mit exakten Hugging Face URLs: `lllyasviel/Annotators`, `lllyasviel/control_v11p_sd15_lineart`
-- [ ] Lizenz-Section: CreativeML OpenRAIL-M für SD 1.5, Apache 2.0 für ControlNet
+- [x] Lizenz-Section: CreativeML OpenRAIL-M für SD 1.5, Apache 2.0 für ControlNet
 - [ ] requirements.txt aufräumen: torch, diffusers, transformers, accelerate, controlnet-aux, pillow, opencv-python, scikit-image, numpy, xformers, vtracer
 - [ ] Python-Version spezifizieren: >=3.8,<3.12 (wegen Dependencies)
-- [ ] Troubleshooting-FAQ: CUDA nicht gefunden, OOM-Errors, langsame CPU-Inferenz, Modell-Download-Fehler
+- [x] Troubleshooting-FAQ: CUDA nicht gefunden, OOM-Errors, langsame CPU-Inferenz, Modell-Download-Fehler
 - [ ] Beispiel-Input/Output Bilder im `examples/` Ordner
 - [ ] Default-Werte dokumentieren und begründen (z.B. warum Steps=32)
 - [ ] Performance-Benchmarks: Zeiten für verschiedene Bildgrößen auf verschiedenen GPUs
@@ -177,3 +177,12 @@ pydocstyle src/
 - [ ] Performance-Messung: FPS bzw. Bilder pro Minute dokumentieren
 - [ ] Fehler-Recovery: Kann nach Crash/Exception fortgesetzt werden?
 - [ ] Modell-Cache: Werden Modelle korrekt zwischengespeichert?
+
+## Nachweise
+
+| ID | Punkt | Status | Nachweis |
+|----|-------|--------|---------|
+| AGENT-201 | torch.inference_mode & autocast | ✅ | 2be2d20, tests/test_utils.py |
+| AGENT-301 | Logging & Queue in GUI | ✅ | 2be2d20 |
+| AGENT-401 | Bildvalidierung & Schreibrechte | ✅ | 2be2d20 |
+| AGENT-601 | README Struktur & Troubleshooting | ✅ | 2be2d20 |

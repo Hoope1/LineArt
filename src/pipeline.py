@@ -7,20 +7,55 @@ lightweight.
 
 from __future__ import annotations
 
+import logging
+import shutil
 import subprocess
 import time
 from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
 
-import cv2
+try:
+    import cv2  # type: ignore[import]
+except Exception:  # pragma: no cover
+    cv2 = None  # type: ignore[assignment]
 import numpy as np
 from PIL import Image
-from skimage import exposure, morphology
-from skimage.morphology import binary_closing, remove_small_objects, skeletonize
-from skimage.morphology.footprints import square
+from skimage import exposure, morphology  # type: ignore[import]
+from skimage.morphology import (  # type: ignore[import]
+    binary_closing,
+    remove_small_objects,
+    skeletonize,
+)
+from skimage.morphology.footprints import square  # type: ignore[import]
+
+logger = logging.getLogger(__name__)
 
 IMG_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"}
+
+
+def detect_device() -> str:
+    """Return best available torch device string."""
+    import torch
+
+    if torch.cuda.is_available():
+        return "cuda"
+    if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():  # type: ignore[attr-defined]
+        return "mps"
+    return "cpu"
+
+
+def detect_dtype(device: str):
+    """Return preferred torch dtype for *device*."""
+    import torch
+
+    if device == "cuda" or device == "mps":
+        return torch.float16
+    return (
+        torch.bfloat16
+        if getattr(torch.cuda, "is_bf16_supported", lambda: False)()
+        else torch.float32
+    )
 
 
 def list_images(folder: Path) -> list[Path]:
@@ -81,15 +116,19 @@ def save_svg_vtracer(png_path: Path, svg_path: Path) -> bool:
 
 
 @lru_cache(maxsize=1)
-def load_dexined(device: str = "cuda"):
+def load_dexined(device: str | None = None):
     """Load the DexiNed edge detector on the requested *device*."""
-    from controlnet_aux import DexiNedDetector  # type: ignore[attr-defined]
+    from controlnet_aux import DexiNedDetector  # type: ignore[import]
 
-    return DexiNedDetector.from_pretrained("lllyasviel/Annotators").to(device)
+    dev = detect_device() if device is None else device
+    logger.info("loading DexiNed on %s", dev)
+    return DexiNedDetector.from_pretrained("lllyasviel/Annotators").to(dev)
 
 
 def guided_smooth_if_available(pil_img: Image.Image) -> Image.Image:
     """Apply detail-preserving denoising."""
+    if cv2 is None:
+        return pil_img
     arr = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
     ximgproc = getattr(cv2, "ximgproc", None)
     if ximgproc is not None:
@@ -105,22 +144,27 @@ def get_dexined(
     pre_smooth: bool = True,
 ) -> Image.Image:
     """Run DexiNed on *pil_img* and return a grayscale edge map."""
-    det = load_dexined(device="cuda" if cv2.cuda.getCudaEnabledDeviceCount() > 0 else "cpu")
+    import torch
+
+    if cv2 is None:
+        raise RuntimeError("cv2 not available")
+    det = load_dexined()
     img = ensure_rgb(pil_img)
     if pre_smooth:
         img = guided_smooth_if_available(img)
 
     maps: list[np.ndarray] = []
-    for s in scales:
-        img_s = img.resize(
-            (max(64, int(img.width * s)), max(64, int(img.height * s))),
-            Image.Resampling.LANCZOS,
-        )
-        e = det(img_s)
-        if e.mode != "L":
-            e = e.convert("L")
-        e = e.resize((img.width, img.height), Image.Resampling.BILINEAR)
-        maps.append(np.array(e, dtype=np.float32) / 255.0)
+    with torch.inference_mode():
+        for s in scales:
+            img_s = img.resize(
+                (max(64, int(img.width * s)), max(64, int(img.height * s))),
+                Image.Resampling.LANCZOS,
+            )
+            e = det(img_s)
+            if e.mode != "L":
+                e = e.convert("L")
+            e = e.resize((img.width, img.height), Image.Resampling.BILINEAR)
+            maps.append(np.array(e, dtype=np.float32) / 255.0)
 
     edge = np.maximum.reduce(maps)
     lo, hi = np.percentile(edge, 5), np.percentile(edge, 99)
@@ -149,10 +193,13 @@ def rescale_edge(edge: Image.Image, w: int, h: int) -> Image.Image:
 @lru_cache(maxsize=1)
 def load_sd15_lineart():
     """Load SD1.5 + ControlNet Lineart with memory-friendly options."""
-    import torch
-    from diffusers import ControlNetModel, StableDiffusionControlNetImg2ImgPipeline
+    from diffusers import (  # type: ignore[import]
+        ControlNetModel,
+        StableDiffusionControlNetImg2ImgPipeline,
+    )
 
-    dtype = torch.float16 if torch.cuda.is_available() else torch.float32
+    device = detect_device()
+    dtype = detect_dtype(device)
     controlnet = ControlNetModel.from_pretrained(
         "lllyasviel/control_v11p_sd15_lineart", torch_dtype=dtype
     )
@@ -162,14 +209,16 @@ def load_sd15_lineart():
         safety_checker=None,
         torch_dtype=dtype,
     )
+    pipe.to(device)
     try:
         pipe.enable_xformers_memory_efficient_attention()
     except Exception:
         pass
-    pipe.enable_attention_slicing()
+    pipe.enable_attention_slicing(slice_size="auto")
     pipe.enable_vae_slicing()
     pipe.enable_vae_tiling()
     pipe.enable_model_cpu_offload()
+    pipe.enable_sequential_cpu_offload()
     return pipe
 
 
@@ -187,26 +236,28 @@ def sd_refine(
     import torch
 
     pipe = load_sd15_lineart()
+    device = pipe._execution_device
     W, H = base_rgb.size
     w, h = resize_img(W, H, max_long=max_long)
     base = base_rgb.resize((w, h), Image.Resampling.LANCZOS).convert("RGB")
     ctrl = ctrl_L.resize((w, h), Image.Resampling.NEAREST).convert("RGB")
 
-    gen = torch.Generator(device=pipe._execution_device).manual_seed(seed)
-    img = pipe(
-        prompt=(
-            "clean black-and-white line art, uniform outlines, detailed, "
-            "background preserved, white paper look, no shading"
-        ),
-        negative_prompt="color, gradients, blur, watermark, text, messy edges, artifacts",
-        image=base,
-        control_image=ctrl,
-        num_inference_steps=steps,
-        guidance_scale=guidance,
-        controlnet_conditioning_scale=ctrl_scale,
-        strength=strength,
-        generator=gen,
-    ).images[0]
+    gen = torch.Generator(device=device).manual_seed(seed)
+    with torch.inference_mode(), torch.autocast(device.type, dtype=detect_dtype(device.type)):
+        img = pipe(
+            prompt=(
+                "clean black-and-white line art, uniform outlines, detailed, "
+                "background preserved, white paper look, no shading"
+            ),
+            negative_prompt="color, gradients, blur, watermark, text, messy edges, artifacts",
+            image=base,
+            control_image=ctrl,
+            num_inference_steps=steps,
+            guidance_scale=guidance,
+            controlnet_conditioning_scale=ctrl_scale,
+            strength=strength,
+            generator=gen,
+        ).images[0]
 
     bw = postprocess_lineart(img)
     return img, bw
@@ -218,7 +269,17 @@ def sd_refine(
 def process_one(path: Path, out_dir: Path, cfg, log: Callable[[str], None]) -> None:
     """Process a single image and write outputs to *out_dir*."""
     t0 = time.perf_counter()
-    src = ensure_rgb(Image.open(path))
+    try:
+        with Image.open(path) as img:
+            img.verify()
+        src = ensure_rgb(Image.open(path))
+    except Exception as exc:  # pylint: disable=broad-except
+        log(f"FEHLER: {path.name} – {exc}")
+        return
+
+    if src.width < 64 or src.height < 64 or src.width > 4096 or src.height > 4096:
+        log(f"FEHLER: {path.name} hat ungültige Abmessungen")
+        return
 
     edges = get_dexined(src)
     ensure_dir(out_dir)
@@ -229,16 +290,20 @@ def process_one(path: Path, out_dir: Path, cfg, log: Callable[[str], None]) -> N
     result_paths = [out_edges]
 
     if cfg["use_sd"]:
-        refined, bw = sd_refine(
-            src,
-            edges,
-            steps=cfg["steps"],
-            guidance=cfg["guidance"],
-            ctrl_scale=cfg["ctrl"],
-            strength=cfg["strength"],
-            seed=cfg["seed"],
-            max_long=cfg["max_long"],
-        )
+        try:
+            refined, bw = sd_refine(
+                src,
+                edges,
+                steps=cfg["steps"],
+                guidance=cfg["guidance"],
+                ctrl_scale=cfg["ctrl"],
+                strength=cfg["strength"],
+                seed=cfg["seed"],
+                max_long=cfg["max_long"],
+            )
+        except Exception as exc:  # pylint: disable=broad-except
+            log(f"FEHLER bei SD-Refinement: {exc}")
+            return
         ref_path = out_dir / f"{path.stem}_refined.png"
         bw_path = out_dir / f"{path.stem}_refined_bw.png"
         refined.save(ref_path)
@@ -260,6 +325,8 @@ def process_folder(
     cfg,
     log: Callable[[str], None],
     done_cb: Callable[[], None],
+    stop_event=None,
+    progress_cb: Callable[[int, int, Path], None] | None = None,
 ) -> None:
     """Process all supported images from *inp_dir* into *out_dir*."""
     imgs = list_images(inp_dir)
@@ -267,9 +334,20 @@ def process_folder(
         log("Keine Eingabebilder gefunden.")
         done_cb()
         return
-    for p in imgs:
+    total = len(imgs)
+    if shutil.disk_usage(out_dir).free < 100 * 1024 * 1024:
+        log("FEHLER: Zu wenig Speicherplatz im Ausgabeverzeichnis")
+        done_cb()
+        return
+    for i, p in enumerate(imgs, 1):
+        if stop_event is not None and stop_event.is_set():
+            log("Verarbeitung abgebrochen.")
+            break
         process_one(p, out_dir, cfg, log)
-    log("\nALLE BILDER ERLEDIGT.")
+        if progress_cb:
+            progress_cb(i, total, p)
+    else:
+        log("\nALLE BILDER ERLEDIGT.")
     done_cb()
 
 
