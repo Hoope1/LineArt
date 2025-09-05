@@ -10,10 +10,10 @@ Entwickelt und getestet für **NVIDIA Quadro T1000 (4 GB VRAM)** + **16 GB RAM**
 
 ## Warum genau dieser Stack?
 
-1. **DexiNed** (Edge-Netz) liefert **feinste und scharfe** Kanten. Wir verwenden den **Annotator** aus `controlnet-aux` und fahren **multi-scale** mit Nachbearbeitung (Hysterese-ähnlich, Closing, Skeletonize). DexiNed ist für sehr feine, zusammenhängende Konturen bekannt. 0  
-2. **Stable Diffusion 1.5 + ControlNet(Lineart)** glättet/normalisiert die aus DexiNed kommenden Linien **ohne** Schattierung oder Farbe – das **Lineart-ControlNet** ist für SD 1.5 trainiert und in der Community Standard. 1  
-3. **SD 1.5** ist im Gegensatz zu **SDXL** auf **4 GB VRAM** verlässlich betreibbar (mit **CPU-Offload**, **Attention/ VAE-Slicing/-Tiling** in Diffusers). SDXL ist auf 4 GB realitätsfern langsam/instabil; daher setzen wir auf SD 1.5. 2  
-4. **VTracer** erzeugt aus der binären Lineart **SVG-Vektoren**, ideal für Unterrichtsmaterial und Druck. 3
+1. **DexiNed** (Edge-Netz) liefert **feinste und scharfe** Kanten. Wir verwenden den **Annotator** aus `controlnet-aux` und fahren **multi-scale** mit Nachbearbeitung (Hysterese-ähnlich, Closing, Skeletonize). DexiNed ist für sehr feine, zusammenhängende Konturen bekannt ([Hugging Face](https://huggingface.co/lllyasviel/Annotators)).
+2. **Stable Diffusion 1.5 + ControlNet(Lineart)** glättet/normalisiert die aus DexiNed kommenden Linien **ohne** Schattierung oder Farbe – das **Lineart-ControlNet** ist für SD 1.5 trainiert und in der Community Standard ([ControlNet Lineart](https://huggingface.co/lllyasviel/control_v11p_sd15_lineart)).
+3. **SD 1.5** ist im Gegensatz zu **SDXL** auf **4 GB VRAM** verlässlich betreibbar (mit **CPU-Offload**, **Attention/ VAE-Slicing/-Tiling** in Diffusers). SDXL ist auf 4 GB realitätsfern langsam/instabil; daher setzen wir auf SD 1.5 ([Stable Diffusion 1.5](https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5)).
+4. **VTracer** erzeugt aus der binären Lineart **SVG-Vektoren**, ideal für Unterrichtsmaterial und Druck ([GitHub](https://github.com/visioncortex/vtracer)).
 
 ---
 
