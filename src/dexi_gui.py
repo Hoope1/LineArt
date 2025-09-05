@@ -25,32 +25,33 @@ import cv2
 import numpy as np
 from PIL import Image
 from skimage import exposure, morphology
-from skimage.morphology import binary_closing, remove_small_objects, skeletonize, square
+from skimage.morphology import binary_closing, remove_small_objects, skeletonize
+from skimage.morphology.footprints import square
 
 # ---------- Utility ----------
 IMG_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"}
 
 
-def list_images(folder: Path):
+def list_images(folder: Path) -> list[Path]:
     """Return all image paths in *folder* with a supported extension."""
     return [p for p in folder.glob("*") if p.suffix.lower() in IMG_EXTS]
 
 
-def to_mult8(w, h, max_long=896):
+def to_mult8(w: int, h: int, max_long: int = 896) -> tuple[int, int]:
     """Scale dimensions to multiples of eight, limiting the longest side."""
     if max(w, h) > max_long:
-        s = max_long / max(w, h)
-        w, h = int(w * s), int(h * s)
+        scale = max_long / max(w, h)
+        w, h = int(w * scale), int(h * scale)
     return max(64, (w // 8) * 8), max(64, (h // 8) * 8)
 
 
-def ensure_dir(p: Path):
+def ensure_dir(p: Path) -> Path:
     """Create directory *p* if needed and return the path."""
     p.mkdir(parents=True, exist_ok=True)
     return p
 
 
-def save_svg_vtracer(png_path: Path, svg_path: Path):
+def save_svg_vtracer(png_path: Path, svg_path: Path) -> bool:
     """Convert *png_path* to SVG via ``vtracer`` and save to *svg_path*."""
     try:
         subprocess.run(
@@ -79,28 +80,34 @@ def save_svg_vtracer(png_path: Path, svg_path: Path):
 _dexi = None
 
 
-def load_dexined(device="cuda"):
+def load_dexined(device: str = "cuda"):
     """Load the DexiNed edge detector on the requested *device*."""
     global _dexi
     if _dexi is not None:
         return _dexi
-    from controlnet_aux import DexiNedDetector  # pip install controlnet-aux
+    from controlnet_aux import DexiNedDetector  # type: ignore[attr-defined]
 
     _dexi = DexiNedDetector.from_pretrained("lllyasviel/Annotators").to(device)
     return _dexi
 
 
-def guided_smooth_if_available(pil_img):
+def guided_smooth_if_available(pil_img: Image.Image) -> Image.Image:
     """Sanftes Entkörnen mit Detailerhalt (guidedFilter falls vorhanden, sonst bilateral)."""
     arr = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
-    if hasattr(cv2, "ximgproc"):  # guidedFilter nur in opencv-contrib verfügbar
-        arr = cv2.ximgproc.guidedFilter(guide=arr, src=arr, radius=4, eps=1e-2)
+    ximgproc = getattr(cv2, "ximgproc", None)
+    if ximgproc is not None:
+        arr = ximgproc.guidedFilter(guide=arr, src=arr, radius=4, eps=1e-2)  # type: ignore[call-arg]
     else:
         arr = cv2.bilateralFilter(arr, d=5, sigmaColor=25, sigmaSpace=25)
     return Image.fromarray(cv2.cvtColor(arr, cv2.COLOR_BGR2RGB))
 
 
-def dexi_multiscale_edges(det, pil_img, scales=(1.0, 0.75, 1.25), pre_smooth=True):
+def dexi_multiscale_edges(
+    det,
+    pil_img: Image.Image,
+    scales: tuple[float, ...] = (1.0, 0.75, 1.25),
+    pre_smooth: bool = True,
+) -> Image.Image:
     """Multi-Scale-DexiNed mit leichtem Postprocessing.
 
     Rückgabe: 8-bit L (0 = schwarze Linie, 255 = weiß).
@@ -109,17 +116,17 @@ def dexi_multiscale_edges(det, pil_img, scales=(1.0, 0.75, 1.25), pre_smooth=Tru
     if pre_smooth:
         img = guided_smooth_if_available(img)
 
-    maps = []
+    maps: list[np.ndarray] = []
     for s in scales:
         if s != 1.0:
             sz = (max(64, int(img.width * s)), max(64, int(img.height * s)))
-            img_s = img.resize(sz, Image.LANCZOS)
+            img_s = img.resize(sz, Image.Resampling.LANCZOS)
         else:
             img_s = img
         e = det(img_s)  # PIL Image (L oder RGB je nach Version)
         if e.mode != "L":
             e = e.convert("L")
-        e = e.resize((img.width, img.height), Image.BILINEAR)
+        e = e.resize((img.width, img.height), Image.Resampling.BILINEAR)
         maps.append(np.array(e, dtype=np.float32) / 255.0)
 
     E = np.maximum.reduce(maps)  # robuste Fusionsregel für Kanten
@@ -174,23 +181,23 @@ def load_sd15_lineart():
 
 
 def sd_refine(
-    base_rgb,
-    ctrl_L,
-    steps=32,
-    guidance=6.0,
-    ctrl_scale=1.0,
-    strength=0.70,
-    seed=42,
-    max_long=896,
-):
+    base_rgb: Image.Image,
+    ctrl_L: Image.Image,
+    steps: int = 32,
+    guidance: float = 6.0,
+    ctrl_scale: float = 1.0,
+    strength: float = 0.70,
+    seed: int = 42,
+    max_long: int = 896,
+) -> tuple[Image.Image, Image.Image]:
     """Refine edges with SD1.5 + ControlNet and return color and BW images."""
     import torch
 
     pipe = load_sd15_lineart()
     W, H = base_rgb.size
     w, h = to_mult8(W, H, max_long=max_long)
-    base = base_rgb.resize((w, h), Image.LANCZOS).convert("RGB")
-    ctrl = ctrl_L.resize((w, h), Image.NEAREST).convert("RGB")
+    base = base_rgb.resize((w, h), Image.Resampling.LANCZOS).convert("RGB")
+    ctrl = ctrl_L.resize((w, h), Image.Resampling.NEAREST).convert("RGB")
 
     gen = torch.Generator(device=pipe._execution_device).manual_seed(seed)
     img = pipe(
@@ -372,25 +379,28 @@ class App(tk.Tk):
         frm_actions = ttk.Frame(self)
         frm_actions.pack(fill="x", **pad)
 
-        ttk.Button(
+        btn_prefetch = ttk.Button(
             frm_actions,
             text="Modelle jetzt herunterladen",
             command=self.prefetch,
-        ).pack(side="left")
-        ttk.Button(
+        )
+        btn_prefetch.pack(side="left")
+        btn_start = ttk.Button(
             frm_actions,
             text="Start",
             command=self.start,
-        ).pack(side="left", padx=10)
-        ttk.Button(
+        )
+        btn_start.pack(side="left", padx=10)
+        btn_stop = ttk.Button(
             frm_actions,
             text="Stopp",
             command=self.stop,
-        ).pack(side="left")
+        )
+        btn_stop.pack(side="left")
 
         frm_log = ttk.LabelFrame(self, text="Log")
         frm_log.pack(fill="both", expand=True, **pad)
-        self.txt = tk.Text(frm_log, height=20)
+        self.txt: tk.Text = tk.Text(frm_log, height=20)
         self.txt.pack(fill="both", expand=True)
 
     # --- Preset-Setter ---
