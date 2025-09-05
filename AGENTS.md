@@ -71,3 +71,109 @@ deptry .
 
 # 5) (optional, falls nicht via Ruff-D-Regeln)
 pydocstyle src/
+# DexiNed → SD 1.5 + ControlNet Pipeline - Implementierungsstatus
+
+## 1. ARCHITEKTUR-REFACTORING
+- [x] Monolithischen Code in `main.py` (reiner GUI-Entrypoint) und `src/pipeline.py` (komplette Pipeline-Logik) aufteilen (main.py + pipeline.py erstellt)
+- [x] Alle DexiNed-Funktionen in pipeline.py verschieben (load_dexined, get_dexined, rescale_edge) (nach pipeline.py migriert)
+- [x] Alle SD/ControlNet-Funktionen in pipeline.py verschieben (load_sd15_lineart, sd_refine) (nach pipeline.py migriert)
+- [x] Bildverarbeitungs-Utilities in pipeline.py kapseln (resize_img, ensure_rgb, postprocess_lineart) (Utility-Funktionen hinzugefügt)
+- [x] Process-Funktionen (process_one, process_folder) in pipeline.py implementieren (aus GUI ausgelagert)
+- [x] GUI-Code komplett in main.py belassen, nur Imports aus pipeline.py nutzen (main.py nutzt pipeline)
+- [x] Globale Variablen (_dexi, _pipe) durch Singleton-Pattern oder Lazy-Loading ersetzen (lru_cache verwendet)
+
+## 2. PERFORMANCE-OPTIMIERUNGEN
+- [ ] `torch.inference_mode()` Kontext-Manager für alle Modell-Inferenzen einbauen
+- [ ] `torch.autocast()` mit device-spezifischen dtype (fp16 für CUDA, fp32 für CPU) implementieren
+- [ ] Device-Detection-Funktion schreiben: erst CUDA prüfen, dann MPS (Apple), dann CPU-Fallback
+- [ ] Memory-Settings für SD-Pipeline: `pipe.enable_attention_slicing(slice_size="auto")`
+- [ ] VAE-Optimierungen: `pipe.enable_vae_slicing()` und `pipe.enable_vae_tiling()`
+- [ ] CPU-Offloading aktivieren: `pipe.enable_model_cpu_offload()` wenn CUDA verfügbar
+- [ ] Sequential CPU-Offloading für low-memory: `pipe.enable_sequential_cpu_offload()`
+- [ ] Deterministische Seeds: `torch.Generator(device).manual_seed(seed)` für jeden Inference-Call
+- [ ] Dtype-Detection implementieren: `torch.float16` für CUDA, `torch.bfloat16` für neuere CPUs, sonst `torch.float32`
+- [ ] Batch-Processing für mehrere Bilder gleichzeitig (wenn genug VRAM)
+
+## 3. THREAD-SAFETY UND GUI-STABILITÄT
+- [ ] Logging-Setup in main.py: `logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')`
+- [ ] Logger-Instanzen für jedes Modul: `logger = logging.getLogger(__name__)`
+- [ ] Queue für Thread-safe GUI-Updates: `self.log_queue = queue.Queue()`
+- [ ] Log-Queue-Processor als Timer-Event (alle 100ms): `self.after(100, self.process_log_queue)`
+- [ ] Threading.Event für Stop-Signal: `self.stop_event = threading.Event()`
+- [ ] Stop-Event in process_folder-Loop prüfen: `if self.stop_event.is_set(): break`
+- [ ] Button-States korrekt verwalten: Start/Stop/Prefetch disabled während Operationen
+- [ ] Alle langläufigen Operationen in daemon-Threads: `threading.Thread(target=job, daemon=True).start()`
+- [ ] Progress-Updates über Queue senden: aktuelle Bildnummer, Gesamtanzahl, Dateiname
+- [ ] GUI-Updates nur im Main-Thread via `self.after(0, lambda: widget.config(...))`
+
+## 4. FEHLERBEHANDLUNG UND ROBUSTHEIT
+- [ ] Try-except um Modell-Downloads mit spezifischen Fehlermeldungen (ConnectionError, HTTPError, OSError)
+- [ ] Bildvalidierung: Mindestgröße 64x64, Maximalgröße 4096x4096, unterstützte Formate (.jpg, .png, .webp)
+- [ ] Korrupte Bilder abfangen: try-except um PIL.Image.open() mit verify()
+- [ ] Schreibrechte prüfen: `os.access(output_dir, os.W_OK)` vor Verarbeitung
+- [ ] OOM-Handling: except torch.cuda.OutOfMemoryError mit Hinweis auf Bildgröße/Batch-Size
+- [ ] Netzwerk-Fallback: Bei Download-Fehler auf lokale Modell-Pfade hinweisen
+- [ ] CUDA-Verfügbarkeit: Explizite Meldung wenn nur CPU verfügbar (Warnung vor langer Laufzeit)
+- [ ] Disk-Space-Check: Prüfen ob genug Speicherplatz für Outputs vorhanden
+- [ ] Modell-Loading-Fallbacks: Bei Fehler alternative Modell-IDs oder lokale Pfade versuchen
+- [ ] Graceful Shutdown: Ressourcen in finally-Blöcken freigeben, Modelle aus VRAM entladen
+
+## 5. CODE-QUALITÄT
+- [ ] Type Hints für ALLE Funktionsparameter: `def function(param: str, number: int) -> Optional[Path]:`
+- [ ] Type Hints für Rückgabewerte, auch bei None: `-> None`
+- [ ] Google-Style Docstrings mit Args, Returns, Raises Sections für jede Funktion
+- [ ] Klassen-Docstrings mit Attributes-Section für alle Instance-Variablen
+- [ ] Black-Formatierung: Zeilen max 88 Zeichen, konsistente Quotes
+- [ ] Ruff-Linting: Import-Sortierung, unused imports entfernen
+- [ ] Pathlib überall: keine String-Pfade, immer `Path` objects
+- [ ] Konstanten in UPPER_CASE am Dateianfang definieren
+- [ ] Magic Numbers durch benannte Konstanten ersetzen (z.B. DEFAULT_STEPS = 32)
+- [ ] F-Strings statt .format() oder %-Formatierung verwenden
+
+## 6. DOKUMENTATION UND USABILITY
+- [ ] README.md Struktur: Installation → Quickstart → Features → Parameter → Troubleshooting → Lizenz
+- [ ] Screenshots der GUI mit Annotationen für jeden Bereich einfügen
+- [ ] Modell-Links mit exakten Hugging Face URLs: `lllyasviel/Annotators`, `lllyasviel/control_v11p_sd15_lineart`
+- [ ] Lizenz-Section: CreativeML OpenRAIL-M für SD 1.5, Apache 2.0 für ControlNet
+- [ ] requirements.txt aufräumen: torch, diffusers, transformers, accelerate, controlnet-aux, pillow, opencv-python, scikit-image, numpy, xformers, vtracer
+- [ ] Python-Version spezifizieren: >=3.8,<3.12 (wegen Dependencies)
+- [ ] Troubleshooting-FAQ: CUDA nicht gefunden, OOM-Errors, langsame CPU-Inferenz, Modell-Download-Fehler
+- [ ] Beispiel-Input/Output Bilder im `examples/` Ordner
+- [ ] Default-Werte dokumentieren und begründen (z.B. warum Steps=32)
+- [ ] Performance-Benchmarks: Zeiten für verschiedene Bildgrößen auf verschiedenen GPUs
+
+## 7. GUI-SPEZIFISCHE VERBESSERUNGEN
+- [ ] Preset-Buttons mit Lambda-Functions: Quick (16 steps), Standard (32), Quality (50), Technical (40)
+- [ ] Tooltips via `CreateToolTip` Klasse für jeden Parameter mit Erklärung und Wertebereich
+- [ ] ttk.Progressbar mit determinate mode: Maximum = Anzahl Bilder, Update nach jedem Bild
+- [ ] tkinterdnd2 für Drag&Drop oder Fallback auf Browse-Button
+- [ ] Settings in JSON speichern: `~/.dexined_pipeline/settings.json` mit last_input, last_output, parameters
+- [ ] Status-Icons: ✓ für fertig, ⚡ für processing, ❌ für Fehler, ⏸ für pausiert
+- [ ] Recent-Folders ComboBox: Letzte 10 verwendete Ordner speichern und anzeigen
+- [ ] Parameter-Gruppen in LabelFrames: "Eingabe/Ausgabe", "Qualität", "Performance", "Erweitert"
+- [ ] Tastenkürzel: Ctrl+O (Open), Ctrl+S (Start), Ctrl+Q (Quit), ESC (Stop)
+- [ ] Statusleiste am unteren Rand: Aktuelles Bild, Geschwindigkeit (Bilder/Min), geschätzte Restzeit
+
+## 8. ZUSÄTZLICHE FEATURES
+- [ ] Thumbnail-Grid mit tkinter.Canvas: 100x100 px Vorschauen der verarbeiteten Bilder
+- [ ] Batch-Size Spinbox: 1-8 Bilder parallel (mit VRAM-Warnung)
+- [ ] Output-Ordner mit Zeitstempel: `output_2024-01-15_14-30-45/`
+- [ ] SHA256-Checksum für Modelle nach Download mit gespeicherten Hashes vergleichen
+- [ ] Pause/Resume via threading.Event: pause_event zusätzlich zu stop_event
+- [ ] Bildstatistiken anzeigen: Anzahl verarbeitet, Durchschnittszeit, Erfolgsrate
+- [ ] Export-Optionen: PNG, JPG (mit Qualität-Slider), WebP
+- [ ] Vergleichsansicht: Original vs. DexiNed vs. Refined nebeneinander
+- [ ] Undo-Funktion: Letzte Batch-Operation rückgängig machen (Dateien löschen)
+- [ ] GPU-Memory-Monitor: Aktuelle VRAM-Nutzung in MB anzeigen
+
+## 9. TESTING UND VALIDIERUNG
+- [ ] Testbilder verschiedener Größen: 256x256, 512x512, 1024x1024, 2048x2048
+- [ ] Edge-Cases testen: 1x1 Pixel, 10000x10000 Pixel, korrupte Dateien
+- [ ] Verschiedene Formate: JPG, PNG, WebP, BMP, GIF (nur erstes Frame)
+- [ ] Speicher-Monitoring während Batch-Verarbeitung (keine Memory Leaks)
+- [ ] Threading-Tests: Start/Stop/Pause in schneller Folge
+- [ ] GUI-Responsiveness: Bleibt UI während 100+ Bilder Batch reaktiv?
+- [ ] Cross-Platform: Windows 10/11, Ubuntu 22.04, macOS (wenn MPS verfügbar)
+- [ ] Performance-Messung: FPS bzw. Bilder pro Minute dokumentieren
+- [ ] Fehler-Recovery: Kann nach Crash/Exception fortgesetzt werden?
+- [ ] Modell-Cache: Werden Modelle korrekt zwischengespeichert?
