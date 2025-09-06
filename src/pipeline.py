@@ -7,6 +7,8 @@ lightweight.
 
 from __future__ import annotations
 
+# pyright: reportArgumentType=false, reportAttributeAccessIssue=false
+# pylint: disable=import-error,no-name-in-module,too-many-locals,too-many-arguments,too-many-positional-arguments,import-outside-toplevel,broad-exception-caught,invalid-name,no-member,line-too-long,protected-access
 import logging
 import shutil
 import subprocess
@@ -15,7 +17,7 @@ import time
 from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
-from typing import TypedDict
+from typing import Any, TypedDict, cast
 
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import HTTPError
@@ -25,6 +27,7 @@ try:
 except Exception:  # pragma: no cover
     cv2 = None  # type: ignore[assignment]
 import numpy as np
+from numpy.typing import NDArray
 from PIL import Image
 from skimage import exposure, morphology  # type: ignore[import]
 from skimage.morphology import (  # type: ignore[import]
@@ -190,9 +193,11 @@ def postprocess_lineart(img: Image.Image) -> Image.Image:
         None
 
     """
-    return (
-        img.convert("L").point(lambda v: 255 if v > 200 else 0, mode="1").convert("L")
-    )
+
+    def _thr(v: int) -> int:
+        return 255 if v > 200 else 0
+
+    return img.convert("L").point(_thr, mode="1").convert("L")  # type: ignore[arg-type]
 
 
 def save_svg_vtracer(png_path: Path, svg_path: Path) -> bool:
@@ -255,7 +260,9 @@ def load_dexined(
         RuntimeError: If the model cannot be downloaded or loaded locally.
 
     """
-    from controlnet_aux import DexiNedDetector  # type: ignore[import]
+    import controlnet_aux  # type: ignore[import]
+
+    DexiNedDetector = cast(Any, controlnet_aux).DexiNedDetector  # type: ignore[reportAttributeAccessIssue]
 
     dev = detect_device() if device is None else device
     logger.info("loading DexiNed on %s", dev)
@@ -331,7 +338,7 @@ def get_dexined(
     if pre_smooth:
         img = guided_smooth_if_available(img)
 
-    maps: list[np.ndarray] = []
+    maps: list[NDArray[np.float32]] = []
     with torch.inference_mode():
         for s in scales:
             img_s = img.resize(
@@ -345,8 +352,13 @@ def get_dexined(
             maps.append(np.array(e, dtype=np.float32) / 255.0)
 
     edge = np.maximum.reduce(maps)
-    lo, hi = np.percentile(edge, 5), np.percentile(edge, 99)
-    edge = exposure.rescale_intensity(edge, in_range=(lo, hi))
+    lo_hi = (
+        float(np.percentile(edge, 5)),
+        float(np.percentile(edge, 99)),
+    )
+    edge = exposure.rescale_intensity(
+        edge, in_range=lo_hi
+    )  # pyright: ignore[reportArgumentType]
     edge = cv2.GaussianBlur(edge, (0, 0), 0.7)
 
     thr = np.clip(np.percentile(edge, 50), 0.25, 0.65)
@@ -512,7 +524,7 @@ def sd_refine(
             torch.inference_mode(),
             torch.autocast(device.type, dtype=detect_dtype(device.type)),
         ):
-            img = pipe(
+            result: Any = pipe(
                 prompt=(
                     "clean black-and-white line art, uniform outlines, detailed, "
                     "background preserved, white paper look, no shading"
@@ -527,7 +539,8 @@ def sd_refine(
                 controlnet_conditioning_scale=ctrl_scale,
                 strength=strength,
                 generator=gen,
-            ).images[0]
+            )
+            img = result.images[0]
     except torch.cuda.OutOfMemoryError as exc:  # pragma: no cover - device specific
         msg = "GPU out of memory. Bildgröße oder Batch-Size reduzieren."
         raise RuntimeError(msg) from exc

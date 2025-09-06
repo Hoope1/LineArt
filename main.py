@@ -18,6 +18,7 @@ from src.pipeline import (
     DEFAULT_SEED,
     DEFAULT_STEPS,
     DEFAULT_STRENGTH,
+    Config,
     detect_device,
     prefetch_models,
     process_folder,
@@ -28,6 +29,10 @@ WINDOW_TITLE = "Dexi LineArt Max (SD1.5 + ControlNet) – Batch GUI"
 WINDOW_GEOMETRY = "820x720"
 LOG_INTERVAL_MS = 100
 PAD = {"padx": 8, "pady": 6}
+
+LogMessage = tuple[str, str]
+ProgressMessage = tuple[str, int, int]
+QueueItem = LogMessage | ProgressMessage
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -68,30 +73,30 @@ class App(tk.Tk):
 
         """
         super().__init__()
-        self.title(WINDOW_TITLE)
-        self.geometry(WINDOW_GEOMETRY)
+        _ = self.title(WINDOW_TITLE)
+        _ = self.geometry(WINDOW_GEOMETRY)
 
-        self.inp_var = tk.StringVar()
-        self.out_var = tk.StringVar()
+        self.inp_var: tk.StringVar = tk.StringVar()
+        self.out_var: tk.StringVar = tk.StringVar()
 
-        self.use_sd = tk.BooleanVar(value=True)
-        self.save_svg = tk.BooleanVar(value=True)
+        self.use_sd: tk.BooleanVar = tk.BooleanVar(value=True)
+        self.save_svg: tk.BooleanVar = tk.BooleanVar(value=True)
 
-        self.steps = tk.IntVar(value=DEFAULT_STEPS)
-        self.guidance = tk.DoubleVar(value=DEFAULT_GUIDANCE)
-        self.ctrl = tk.DoubleVar(value=DEFAULT_CTRL_SCALE)
-        self.strength = tk.DoubleVar(value=DEFAULT_STRENGTH)
-        self.seed = tk.IntVar(value=DEFAULT_SEED)
-        self.max_long = tk.IntVar(value=DEFAULT_MAX_LONG)
+        self.steps: tk.IntVar = tk.IntVar(value=DEFAULT_STEPS)
+        self.guidance: tk.DoubleVar = tk.DoubleVar(value=DEFAULT_GUIDANCE)
+        self.ctrl: tk.DoubleVar = tk.DoubleVar(value=DEFAULT_CTRL_SCALE)
+        self.strength: tk.DoubleVar = tk.DoubleVar(value=DEFAULT_STRENGTH)
+        self.seed: tk.IntVar = tk.IntVar(value=DEFAULT_SEED)
+        self.max_long: tk.IntVar = tk.IntVar(value=DEFAULT_MAX_LONG)
 
-        self.log_queue: queue.Queue[str] = queue.Queue()
-        self.after(LOG_INTERVAL_MS, self.process_log_queue)
-        self.stop_event = threading.Event()
-        self.progress_total = 0
+        self.log_queue: queue.Queue[QueueItem] = queue.Queue()
+        _ = self.after(LOG_INTERVAL_MS, self.process_log_queue)
+        self.stop_event: threading.Event = threading.Event()
+        self.progress_total: int = 0
 
         self._build()
 
-        self.running = False
+        self.running: bool = False
         self.worker: threading.Thread | None = None
 
     def _build(self) -> None:
@@ -104,10 +109,10 @@ class App(tk.Tk):
             None
 
         """
-        pad = PAD
+        pad_x, pad_y = PAD["padx"], PAD["pady"]
 
         frm_paths = ttk.LabelFrame(self, text="Ordner")
-        frm_paths.pack(fill="x", **pad)
+        frm_paths.pack(fill="x", padx=pad_x, pady=pad_y)
 
         ttk.Label(frm_paths, text="Eingabe:").grid(row=0, column=0, sticky="e")
         ttk.Entry(frm_paths, textvariable=self.inp_var, width=70).grid(
@@ -122,7 +127,7 @@ class App(tk.Tk):
         ttk.Button(frm_paths, text="…", command=self.pick_out).grid(row=1, column=2)
 
         frm_opts = ttk.LabelFrame(self, text="Optionen")
-        frm_opts.pack(fill="x", **pad)
+        frm_opts.pack(fill="x", padx=pad_x, pady=pad_y)
 
         ttk.Checkbutton(
             frm_opts,
@@ -173,60 +178,65 @@ class App(tk.Tk):
         )
 
         frm_presets = ttk.LabelFrame(self, text="Presets")
-        frm_presets.pack(fill="x", **pad)
+        frm_presets.pack(fill="x", padx=pad_x, pady=pad_y)
 
         ttk.Button(
             frm_presets,
             text="Quick",
-            command=lambda: (self.steps.set(16), self.log("Preset geladen: Quick")),
+            command=lambda: self._apply_preset(16, "Quick"),
         ).grid(row=0, column=0, padx=4, pady=4, sticky="w")
         ttk.Button(
             frm_presets,
             text="Standard",
-            command=lambda: (self.steps.set(32), self.log("Preset geladen: Standard")),
+            command=lambda: self._apply_preset(32, "Standard"),
         ).grid(row=0, column=1, padx=4, pady=4, sticky="w")
         ttk.Button(
             frm_presets,
             text="Quality",
-            command=lambda: (self.steps.set(50), self.log("Preset geladen: Quality")),
+            command=lambda: self._apply_preset(50, "Quality"),
         ).grid(row=0, column=2, padx=4, pady=4, sticky="w")
         ttk.Button(
             frm_presets,
             text="Technical",
-            command=lambda: (self.steps.set(40), self.log("Preset geladen: Technical")),
+            command=lambda: self._apply_preset(40, "Technical"),
         ).grid(row=0, column=3, padx=4, pady=4, sticky="w")
 
         frm_actions = ttk.Frame(self)
-        frm_actions.pack(fill="x", **pad)
+        frm_actions.pack(fill="x", padx=pad_x, pady=pad_y)
 
-        self.btn_prefetch = ttk.Button(
+        self.btn_prefetch: ttk.Button = ttk.Button(
             frm_actions,
             text="Modelle jetzt herunterladen",
             command=self.prefetch,
         )
         self.btn_prefetch.pack(side="left")
-        self.btn_start = ttk.Button(
+        self.btn_start: ttk.Button = ttk.Button(
             frm_actions,
             text="Start",
             command=self.start,
         )
         self.btn_start.pack(side="left", padx=10)
-        self.btn_stop = ttk.Button(
+        self.btn_stop: ttk.Button = ttk.Button(
             frm_actions,
             text="Stopp",
             command=self.stop,
         )
         self.btn_stop.pack(side="left")
 
-        self.pbar = ttk.Progressbar(frm_actions, mode="determinate")
+        self.pbar: ttk.Progressbar = ttk.Progressbar(frm_actions, mode="determinate")
         self.pbar.pack(fill="x", expand=True, padx=10)
 
         frm_log = ttk.LabelFrame(self, text="Log")
-        frm_log.pack(fill="both", expand=True, **pad)
+        frm_log.pack(fill="both", expand=True, padx=pad_x, pady=pad_y)
         self.txt: tk.Text = tk.Text(frm_log, height=20)
         self.txt.pack(fill="both", expand=True)
 
     # --- Preset-Setter ---
+    def _apply_preset(self, steps: int, name: str) -> None:
+        """Update step count and log preset selection."""
+        self.steps.set(steps)
+        self.log(f"Preset geladen: {name}")
+
     def pick_inp(self) -> None:
         """Ask the user for an input directory.
 
@@ -299,13 +309,15 @@ class App(tk.Tk):
         """
         while not self.log_queue.empty():
             msg = self.log_queue.get()
-            if msg[0] == "log":
-                self.txt.insert("end", msg[1] + "\n")
+            if len(msg) == 2:
+                _, text = msg
+                self.txt.insert("end", f"{text}\n")
                 self.txt.see("end")
-            elif msg[0] == "progress":
+            else:
                 _, cur, total = msg
-                self.pbar.config(maximum=total, value=cur)
-        self.after(100, self.process_log_queue)
+                self.pbar["maximum"] = total
+                self.pbar["value"] = cur
+        _ = self.after(100, self.process_log_queue)
 
     def prefetch(self) -> None:
         """Download models in a background thread.
@@ -360,23 +372,23 @@ class App(tk.Tk):
                 "Warnung", "CUDA nicht verfügbar – CPU wird langsam sein."
             )
 
-        cfg = dict(
-            use_sd=self.use_sd.get(),
-            save_svg=self.save_svg.get(),
-            steps=int(self.steps.get()),
-            guidance=float(self.guidance.get()),
-            ctrl=float(self.ctrl.get()),
-            strength=float(self.strength.get()),
-            seed=int(self.seed.get()),
-            max_long=int(self.max_long.get()),
-        )
+        cfg: Config = {
+            "use_sd": self.use_sd.get(),
+            "save_svg": self.save_svg.get(),
+            "steps": int(self.steps.get()),
+            "guidance": float(self.guidance.get()),
+            "ctrl": float(self.ctrl.get()),
+            "strength": float(self.strength.get()),
+            "seed": int(self.seed.get()),
+            "max_long": int(self.max_long.get()),
+        }
 
         self.running = True
         self.stop_event.clear()
-        self.pbar.config(value=0)
-        self.btn_start.config(state="disabled")
-        self.btn_prefetch.config(state="disabled")
-        self.btn_stop.config(state="normal")
+        self.pbar["value"] = 0
+        self.btn_start["state"] = "disabled"
+        self.btn_prefetch["state"] = "disabled"
+        self.btn_stop["state"] = "normal"
         self.log("Starte Verarbeitung …")
 
         def job() -> None:
