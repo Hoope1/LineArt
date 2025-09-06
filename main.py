@@ -13,7 +13,9 @@ from tkinter import filedialog, messagebox, ttk
 
 from src.pipeline import detect_device, prefetch_models, process_folder
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 
@@ -56,11 +58,15 @@ class App(tk.Tk):
         frm_paths.pack(fill="x", **pad)
 
         ttk.Label(frm_paths, text="Eingabe:").grid(row=0, column=0, sticky="e")
-        ttk.Entry(frm_paths, textvariable=self.inp_var, width=70).grid(row=0, column=1, sticky="we")
+        ttk.Entry(frm_paths, textvariable=self.inp_var, width=70).grid(
+            row=0, column=1, sticky="we"
+        )
         ttk.Button(frm_paths, text="…", command=self.pick_inp).grid(row=0, column=2)
 
         ttk.Label(frm_paths, text="Ausgabe:").grid(row=1, column=0, sticky="e")
-        ttk.Entry(frm_paths, textvariable=self.out_var, width=70).grid(row=1, column=1, sticky="we")
+        ttk.Entry(frm_paths, textvariable=self.out_var, width=70).grid(
+            row=1, column=1, sticky="we"
+        )
         ttk.Button(frm_paths, text="…", command=self.pick_out).grid(row=1, column=2)
 
         frm_opts = ttk.LabelFrame(self, text="Optionen")
@@ -87,28 +93,44 @@ class App(tk.Tk):
         )
 
         ttk.Label(frm_opts, text="Steps").grid(row=1, column=0, sticky="e")
-        ttk.Entry(frm_opts, textvariable=self.steps, width=6).grid(row=1, column=1, sticky="w")
+        ttk.Entry(frm_opts, textvariable=self.steps, width=6).grid(
+            row=1, column=1, sticky="w"
+        )
         ttk.Label(frm_opts, text="Guidance").grid(row=1, column=2, sticky="e")
-        ttk.Entry(frm_opts, textvariable=self.guidance, width=6).grid(row=1, column=3, sticky="w")
+        ttk.Entry(frm_opts, textvariable=self.guidance, width=6).grid(
+            row=1, column=3, sticky="w"
+        )
         ttk.Label(frm_opts, text="Ctrl-Scale").grid(row=1, column=4, sticky="e")
-        ttk.Entry(frm_opts, textvariable=self.ctrl, width=6).grid(row=1, column=5, sticky="w")
+        ttk.Entry(frm_opts, textvariable=self.ctrl, width=6).grid(
+            row=1, column=5, sticky="w"
+        )
 
         ttk.Label(frm_opts, text="Strength (img2img)").grid(row=2, column=0, sticky="e")
-        ttk.Entry(frm_opts, textvariable=self.strength, width=6).grid(row=2, column=1, sticky="w")
+        ttk.Entry(frm_opts, textvariable=self.strength, width=6).grid(
+            row=2, column=1, sticky="w"
+        )
         ttk.Label(frm_opts, text="Seed").grid(row=2, column=2, sticky="e")
-        ttk.Entry(frm_opts, textvariable=self.seed, width=8).grid(row=2, column=3, sticky="w")
-        ttk.Label(frm_opts, text="Max lange Kante (px)").grid(row=2, column=4, sticky="e")
-        ttk.Entry(frm_opts, textvariable=self.max_long, width=6).grid(row=2, column=5, sticky="w")
+        ttk.Entry(frm_opts, textvariable=self.seed, width=8).grid(
+            row=2, column=3, sticky="w"
+        )
+        ttk.Label(frm_opts, text="Max lange Kante (px)").grid(
+            row=2, column=4, sticky="e"
+        )
+        ttk.Entry(frm_opts, textvariable=self.max_long, width=6).grid(
+            row=2, column=5, sticky="w"
+        )
 
         frm_presets = ttk.LabelFrame(self, text="Presets")
         frm_presets.pack(fill="x", **pad)
 
         ttk.Button(
-            frm_presets, text="Technische Strichzeichnung", command=self.preset_technical
+            frm_presets,
+            text="Technische Strichzeichnung",
+            command=self.preset_technical,
         ).grid(row=0, column=0, padx=4, pady=4, sticky="w")
-        ttk.Button(frm_presets, text="Natürliche Lineart", command=self.preset_natural).grid(
-            row=0, column=1, padx=4, pady=4, sticky="w"
-        )
+        ttk.Button(
+            frm_presets, text="Natürliche Lineart", command=self.preset_natural
+        ).grid(row=0, column=1, padx=4, pady=4, sticky="w")
 
         frm_actions = ttk.Frame(self)
         frm_actions.pack(fill="x", **pad)
@@ -221,14 +243,18 @@ class App(tk.Tk):
             try:
                 out.mkdir(parents=True, exist_ok=True)
             except Exception as e:  # pylint: disable=broad-except
-                messagebox.showerror("Fehler", f"Ausgabeordner kann nicht erstellt werden:\n{e}")
+                messagebox.showerror(
+                    "Fehler", f"Ausgabeordner kann nicht erstellt werden:\n{e}"
+                )
                 return
         if not os.access(out, os.W_OK):
             messagebox.showerror("Fehler", "Keine Schreibrechte im Ausgabeordner")
             return
 
         if detect_device() != "cuda":
-            messagebox.showwarning("Warnung", "CUDA nicht verfügbar – CPU wird langsam sein.")
+            messagebox.showwarning(
+                "Warnung", "CUDA nicht verfügbar – CPU wird langsam sein."
+            )
 
         cfg = dict(
             use_sd=self.use_sd.get(),
@@ -251,7 +277,9 @@ class App(tk.Tk):
 
         def job() -> None:
             try:
-                process_folder(inp, out, cfg, self.log, self.done, self.stop_event, self.progress)
+                process_folder(
+                    inp, out, cfg, self.log, self.done, self.stop_event, self.progress
+                )
             except Exception as e:  # pylint: disable=broad-except
                 self.log(f"FEHLER: {e}")
                 self.done()
