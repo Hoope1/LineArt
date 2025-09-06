@@ -11,7 +11,17 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
-from src.pipeline import detect_device, prefetch_models, process_folder
+from src.pipeline import (
+    DEFAULT_CTRL_SCALE,
+    DEFAULT_GUIDANCE,
+    DEFAULT_MAX_LONG,
+    DEFAULT_SEED,
+    DEFAULT_STEPS,
+    DEFAULT_STRENGTH,
+    detect_device,
+    prefetch_models,
+    process_folder,
+)
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
@@ -20,7 +30,26 @@ logger = logging.getLogger(__name__)
 
 
 class App(tk.Tk):
-    """Tkinter GUI for batch line-art generation."""
+    """Tkinter GUI for batch line-art generation.
+
+    Attributes:
+        inp_var: Selected input directory.
+        out_var: Selected output directory.
+        use_sd: Whether to run SD refinement.
+        save_svg: Whether to save SVG outputs.
+        steps: Diffusion steps.
+        guidance: Guidance scale.
+        ctrl: ControlNet conditioning scale.
+        strength: Img2Img strength.
+        seed: Random seed for reproducibility.
+        max_long: Maximum long edge in pixels.
+        log_queue: Queue for thread-safe logging.
+        stop_event: Event signalling a stop request.
+        progress_total: Total number of images processed.
+        running: Flag indicating active processing.
+        worker: Background worker thread.
+
+    """
 
     def __init__(self) -> None:
         """Initialize window, variables and widgets."""
@@ -34,12 +63,12 @@ class App(tk.Tk):
         self.use_sd = tk.BooleanVar(value=True)
         self.save_svg = tk.BooleanVar(value=True)
 
-        self.steps = tk.IntVar(value=32)
-        self.guidance = tk.DoubleVar(value=6.0)
-        self.ctrl = tk.DoubleVar(value=1.0)
-        self.strength = tk.DoubleVar(value=0.70)
-        self.seed = tk.IntVar(value=42)
-        self.max_long = tk.IntVar(value=896)
+        self.steps = tk.IntVar(value=DEFAULT_STEPS)
+        self.guidance = tk.DoubleVar(value=DEFAULT_GUIDANCE)
+        self.ctrl = tk.DoubleVar(value=DEFAULT_CTRL_SCALE)
+        self.strength = tk.DoubleVar(value=DEFAULT_STRENGTH)
+        self.seed = tk.IntVar(value=DEFAULT_SEED)
+        self.max_long = tk.IntVar(value=DEFAULT_MAX_LONG)
 
         self.log_queue: queue.Queue[str] = queue.Queue()
         self.after(100, self.process_log_queue)
@@ -200,11 +229,23 @@ class App(tk.Tk):
             self.out_var.set(p)
 
     def log(self, s: str) -> None:
-        """Enqueue a log message from any thread."""
+        """Enqueue a log message from any thread.
+
+        Args:
+            s: Message to append.
+
+        """
         self.log_queue.put(("log", s))
 
     def progress(self, cur: int, total: int, _path: Path) -> None:
-        """Enqueue progress update."""
+        """Enqueue progress update.
+
+        Args:
+            cur: Current index.
+            total: Total number of items.
+            _path: Current image path (unused).
+
+        """
         self.log_queue.put(("progress", cur, total))
 
     def process_log_queue(self) -> None:

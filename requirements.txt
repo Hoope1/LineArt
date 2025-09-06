@@ -3,7 +3,6 @@ torch
 diffusers
 transformers
 accelerate
-safetensors
 controlnet-aux
 pillow
 opencv-python
