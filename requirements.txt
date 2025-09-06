@@ -10,15 +10,3 @@ scikit-image
 numpy
 xformers
 vtracer
-
-# Development tools
-black
-ruff
-basedpyright
-mypy
-pylint
-vulture
-deptry
-isort
-pyupgrade
-pydocstyle

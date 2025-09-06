@@ -1,5 +1,7 @@
 # Dexi LineArt Max
 
+*Benötigt Python >=3.8,<3.12*
+
 ## Installation
 ```
 python -m venv .venv
@@ -17,6 +19,22 @@ python main.py
 - SD 1.5 + ControlNet lineart refinement
 - Optional SVG export via VTracer
 
+## GUI
+
+```
++---------------------------------------+
+| Input Dir  [Browse] [Start] [Stop]    |
+| Output Dir [Browse]                   |
+|                                       |
+| Steps: [32] Guidance: [6.0]           |
+| Ctrl-Scale: [1.0] Strength: [0.70]    |
+| Seed: [42] Max Edge: [896]            |
+|                                       |
+| [ Progress bar ------------------- ]  |
+| Status: Idle                          |
++---------------------------------------+
+```
+
 ## Modelle
 - [lllyasviel/Annotators](https://huggingface.co/lllyasviel/Annotators) – DexiNed
 - [lllyasviel/control_v11p_sd15_lineart](https://huggingface.co/lllyasviel/control_v11p_sd15_lineart) – ControlNet
@@ -28,6 +46,11 @@ python main.py
 - Strength (0.70) – Stärke des Img2Img-Effekts
 - Seed (42) – Reproduzierbarkeit
 - Max lange Kante (896px) – begrenzt Rechenaufwand
+
+## Beispiele
+Beispiel-Eingabe und -Ausgabe befinden sich im Ordner `examples/`.
+
+Da Binärdateien im Repository nicht enthalten sind, siehe `examples/README.md` für Downloadlinks zu Beispielbildern.
 
 ## Troubleshooting
 - CUDA nicht gefunden: Installation von passenden Treibern prüfen.
