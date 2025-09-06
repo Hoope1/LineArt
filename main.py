@@ -177,12 +177,24 @@ class App(tk.Tk):
 
         ttk.Button(
             frm_presets,
-            text="Technische Strichzeichnung",
-            command=self.preset_technical,
+            text="Quick",
+            command=lambda: (self.steps.set(16), self.log("Preset geladen: Quick")),
         ).grid(row=0, column=0, padx=4, pady=4, sticky="w")
         ttk.Button(
-            frm_presets, text="Natürliche Lineart", command=self.preset_natural
+            frm_presets,
+            text="Standard",
+            command=lambda: (self.steps.set(32), self.log("Preset geladen: Standard")),
         ).grid(row=0, column=1, padx=4, pady=4, sticky="w")
+        ttk.Button(
+            frm_presets,
+            text="Quality",
+            command=lambda: (self.steps.set(50), self.log("Preset geladen: Quality")),
+        ).grid(row=0, column=2, padx=4, pady=4, sticky="w")
+        ttk.Button(
+            frm_presets,
+            text="Technical",
+            command=lambda: (self.steps.set(40), self.log("Preset geladen: Technical")),
+        ).grid(row=0, column=3, padx=4, pady=4, sticky="w")
 
         frm_actions = ttk.Frame(self)
         frm_actions.pack(fill="x", **pad)
@@ -215,46 +227,6 @@ class App(tk.Tk):
         self.txt.pack(fill="both", expand=True)
 
     # --- Preset-Setter ---
-    def preset_technical(self) -> None:
-        """Set parameters for technical line art.
-
-        Returns:
-            None
-
-        Raises:
-            None
-
-        """
-        self.use_sd.set(True)
-        self.save_svg.set(True)
-        self.steps.set(36)
-        self.guidance.set(6.5)
-        self.ctrl.set(1.10)
-        self.strength.set(0.65)
-        self.seed.set(42)
-        self.max_long.set(896)
-        self.log("Preset geladen: Technische Strichzeichnung")
-
-    def preset_natural(self) -> None:
-        """Set parameters for natural line art.
-
-        Returns:
-            None
-
-        Raises:
-            None
-
-        """
-        self.use_sd.set(True)
-        self.save_svg.set(True)
-        self.steps.set(32)
-        self.guidance.set(5.8)
-        self.ctrl.set(0.95)
-        self.strength.set(0.70)
-        self.seed.set(42)
-        self.max_long.set(896)
-        self.log("Preset geladen: Natürliche Lineart")
-
     def pick_inp(self) -> None:
         """Ask the user for an input directory.
 
