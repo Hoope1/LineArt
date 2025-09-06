@@ -23,6 +23,12 @@ from src.pipeline import (
     process_folder,
 )
 
+# GUI constants
+WINDOW_TITLE = "Dexi LineArt Max (SD1.5 + ControlNet) – Batch GUI"
+WINDOW_GEOMETRY = "820x720"
+LOG_INTERVAL_MS = 100
+PAD = {"padx": 8, "pady": 6}
+
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
@@ -52,10 +58,18 @@ class App(tk.Tk):
     """
 
     def __init__(self) -> None:
-        """Initialize window, variables and widgets."""
+        """Initialize window, variables and widgets.
+
+        Returns:
+            None
+
+        Raises:
+            None
+
+        """
         super().__init__()
-        self.title("Dexi LineArt Max (SD1.5 + ControlNet) – Batch GUI")
-        self.geometry("820x720")
+        self.title(WINDOW_TITLE)
+        self.geometry(WINDOW_GEOMETRY)
 
         self.inp_var = tk.StringVar()
         self.out_var = tk.StringVar()
@@ -71,7 +85,7 @@ class App(tk.Tk):
         self.max_long = tk.IntVar(value=DEFAULT_MAX_LONG)
 
         self.log_queue: queue.Queue[str] = queue.Queue()
-        self.after(100, self.process_log_queue)
+        self.after(LOG_INTERVAL_MS, self.process_log_queue)
         self.stop_event = threading.Event()
         self.progress_total = 0
 
@@ -81,7 +95,16 @@ class App(tk.Tk):
         self.worker: threading.Thread | None = None
 
     def _build(self) -> None:
-        pad = {"padx": 8, "pady": 6}
+        """Create and lay out all widgets.
+
+        Returns:
+            None
+
+        Raises:
+            None
+
+        """
+        pad = PAD
 
         frm_paths = ttk.LabelFrame(self, text="Ordner")
         frm_paths.pack(fill="x", **pad)
@@ -193,7 +216,15 @@ class App(tk.Tk):
 
     # --- Preset-Setter ---
     def preset_technical(self) -> None:
-        """Technische Strichzeichnung: einheitliche Konturen, klare Kanten."""
+        """Set parameters for technical line art.
+
+        Returns:
+            None
+
+        Raises:
+            None
+
+        """
         self.use_sd.set(True)
         self.save_svg.set(True)
         self.steps.set(36)
@@ -205,7 +236,15 @@ class App(tk.Tk):
         self.log("Preset geladen: Technische Strichzeichnung")
 
     def preset_natural(self) -> None:
-        """Natürliche Lineart: Hintergrund erhalten, weichere Linien."""
+        """Set parameters for natural line art.
+
+        Returns:
+            None
+
+        Raises:
+            None
+
+        """
         self.use_sd.set(True)
         self.save_svg.set(True)
         self.steps.set(32)
@@ -217,13 +256,29 @@ class App(tk.Tk):
         self.log("Preset geladen: Natürliche Lineart")
 
     def pick_inp(self) -> None:
-        """Ask the user for an input directory."""
+        """Ask the user for an input directory.
+
+        Returns:
+            None
+
+        Raises:
+            None
+
+        """
         p = filedialog.askdirectory(title="Eingabeordner wählen")
         if p:
             self.inp_var.set(p)
 
     def pick_out(self) -> None:
-        """Ask the user for an output directory."""
+        """Ask the user for an output directory.
+
+        Returns:
+            None
+
+        Raises:
+            None
+
+        """
         p = filedialog.askdirectory(title="Ausgabeordner wählen")
         if p:
             self.out_var.set(p)
@@ -233,6 +288,12 @@ class App(tk.Tk):
 
         Args:
             s: Message to append.
+
+        Returns:
+            None
+
+        Raises:
+            None
 
         """
         self.log_queue.put(("log", s))
@@ -245,11 +306,25 @@ class App(tk.Tk):
             total: Total number of items.
             _path: Current image path (unused).
 
+        Returns:
+            None
+
+        Raises:
+            None
+
         """
         self.log_queue.put(("progress", cur, total))
 
     def process_log_queue(self) -> None:
-        """Handle queued log and progress events."""
+        """Handle queued log and progress events.
+
+        Returns:
+            None
+
+        Raises:
+            None
+
+        """
         while not self.log_queue.empty():
             msg = self.log_queue.get()
             if msg[0] == "log":
@@ -261,7 +336,15 @@ class App(tk.Tk):
         self.after(100, self.process_log_queue)
 
     def prefetch(self) -> None:
-        """Download models in a background thread."""
+        """Download models in a background thread.
+
+        Returns:
+            None
+
+        Raises:
+            None
+
+        """
 
         def job() -> None:
             try:
@@ -273,7 +356,15 @@ class App(tk.Tk):
         threading.Thread(target=job, daemon=True).start()
 
     def start(self) -> None:
-        """Start processing in a background thread."""
+        """Start processing in a background thread.
+
+        Returns:
+            None
+
+        Raises:
+            None
+
+        """
         if self.running:
             return
         inp, out = Path(self.inp_var.get()), Path(self.out_var.get())
@@ -329,13 +420,29 @@ class App(tk.Tk):
         self.worker.start()
 
     def stop(self) -> None:
-        """Request that processing stop after the current image."""
+        """Request that processing stop after the current image.
+
+        Returns:
+            None
+
+        Raises:
+            None
+
+        """
         self.running = False
         self.stop_event.set()
         self.log("Stop angefordert (nach aktuellem Bild).")
 
     def done(self) -> None:
-        """Mark the current job as finished."""
+        """Mark the current job as finished.
+
+        Returns:
+            None
+
+        Raises:
+            None
+
+        """
         self.running = False
         self.btn_start.config(state="normal")
         self.btn_prefetch.config(state="normal")
@@ -344,7 +451,15 @@ class App(tk.Tk):
 
 
 def main() -> None:
-    """Start the Dexi LineArt GUI."""
+    """Start the Dexi LineArt GUI.
+
+    Returns:
+        None
+
+    Raises:
+        None
+
+    """
     app = App()
     app.mainloop()
 

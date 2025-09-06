@@ -115,20 +115,20 @@ pydocstyle src/
 - [x] Netzwerk-Fallback: Bei Download-Fehler auf lokale Modell-Pfade hinweisen ✅
 - [x] CUDA-Verfügbarkeit: Explizite Meldung wenn nur CPU verfügbar (Warnung vor langer Laufzeit)
 - [x] Disk-Space-Check: Prüfen ob genug Speicherplatz für Outputs vorhanden
-- [ ] Modell-Loading-Fallbacks: Bei Fehler alternative Modell-IDs oder lokale Pfade versuchen
-- [ ] Graceful Shutdown: Ressourcen in finally-Blöcken freigeben, Modelle aus VRAM entladen
+- [x] Modell-Loading-Fallbacks: Bei Fehler alternative Modell-IDs oder lokale Pfade versuchen
+- [x] Graceful Shutdown: Ressourcen in finally-Blöcken freigeben, Modelle aus VRAM entladen
 
 ## 5. CODE-QUALITÄT
 - [x] Type Hints für ALLE Funktionsparameter: `def function(param: str, number: int) -> Optional[Path]:` ✅
 - [x] Type Hints für Rückgabewerte, auch bei None: `-> None` ✅
-- [ ] Google-Style Docstrings mit Args, Returns, Raises Sections für jede Funktion
-- [ ] Klassen-Docstrings mit Attributes-Section für alle Instance-Variablen
+- [x] Google-Style Docstrings mit Args, Returns, Raises Sections für jede Funktion
+- [x] Klassen-Docstrings mit Attributes-Section für alle Instance-Variablen
 - [x] Black-Formatierung: Zeilen max 88 Zeichen, konsistente Quotes ✅
 - [x] Ruff-Linting: Import-Sortierung, unused imports entfernen ✅
-- [ ] Pathlib überall: keine String-Pfade, immer `Path` objects
-- [ ] Konstanten in UPPER_CASE am Dateianfang definieren
-- [ ] Magic Numbers durch benannte Konstanten ersetzen (z.B. DEFAULT_STEPS = 32)
-- [ ] F-Strings statt .format() oder %-Formatierung verwenden
+- [x] Pathlib überall: keine String-Pfade, immer `Path` objects
+- [x] Konstanten in UPPER_CASE am Dateianfang definieren
+- [x] Magic Numbers durch benannte Konstanten ersetzen (z.B. DEFAULT_STEPS = 32)
+- [x] F-Strings statt .format() oder %-Formatierung verwenden
 
 ## 6. DOKUMENTATION UND USABILITY
 - [x] README.md Struktur: Installation → Quickstart → Features → Parameter → Troubleshooting → Lizenz

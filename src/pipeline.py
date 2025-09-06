@@ -70,6 +70,9 @@ def detect_device() -> str:
     Returns:
         str: ``"cuda"``, ``"mps"`` or ``"cpu"`` depending on availability.
 
+    Raises:
+        None
+
     """
     import torch
 
@@ -88,6 +91,9 @@ def detect_dtype(device: str):
 
     Returns:
         torch.dtype: Appropriate dtype for the given device.
+
+    Raises:
+        None
 
     """
     import torch
@@ -110,6 +116,9 @@ def list_images(folder: Path) -> list[Path]:
     Returns:
         list[Path]: Sorted list of image paths.
 
+    Raises:
+        None
+
     """
     return [p for p in folder.glob("*") if p.suffix.lower() in IMG_EXTS]
 
@@ -124,6 +133,9 @@ def resize_img(w: int, h: int, max_long: int = DEFAULT_MAX_LONG) -> tuple[int, i
 
     Returns:
         tuple[int, int]: Resized width and height.
+
+    Raises:
+        None
 
     """
     if max(w, h) > max_long:
@@ -141,6 +153,9 @@ def ensure_dir(p: Path) -> Path:
     Returns:
         Path: The created directory path.
 
+    Raises:
+        None
+
     """
     p.mkdir(parents=True, exist_ok=True)
     return p
@@ -155,6 +170,9 @@ def ensure_rgb(img: Image.Image) -> Image.Image:
     Returns:
         Image.Image: RGB image.
 
+    Raises:
+        None
+
     """
     return img.convert("RGB") if img.mode != "RGB" else img
 
@@ -167,6 +185,9 @@ def postprocess_lineart(img: Image.Image) -> Image.Image:
 
     Returns:
         Image.Image: Thresholded single-channel image.
+
+    Raises:
+        None
 
     """
     return (
@@ -183,6 +204,9 @@ def save_svg_vtracer(png_path: Path, svg_path: Path) -> bool:
 
     Returns:
         bool: ``True`` if conversion succeeded.
+
+    Raises:
+        None
 
     """
     try:
@@ -212,17 +236,23 @@ def save_svg_vtracer(png_path: Path, svg_path: Path) -> bool:
 
 
 @lru_cache(maxsize=1)
-def load_dexined(device: str | None = None):
+def load_dexined(
+    device: str | None = None,
+    model_id: str = "lllyasviel/Annotators",
+    local_dir: Path | None = None,
+):
     """Load the DexiNed edge detector on the requested *device*.
 
     Args:
         device: Optional torch device string.
+        model_id: Hugging Face model identifier.
+        local_dir: Optional local model directory used as fallback.
 
     Returns:
         DexiNedDetector: Loaded detector instance.
 
     Raises:
-        RuntimeError: If the model cannot be downloaded.
+        RuntimeError: If the model cannot be downloaded or loaded locally.
 
     """
     from controlnet_aux import DexiNedDetector  # type: ignore[import]
@@ -230,8 +260,18 @@ def load_dexined(device: str | None = None):
     dev = detect_device() if device is None else device
     logger.info("loading DexiNed on %s", dev)
     try:
-        return DexiNedDetector.from_pretrained("lllyasviel/Annotators").to(dev)
+        return DexiNedDetector.from_pretrained(model_id).to(dev)
     except (RequestsConnectionError, HTTPError, OSError) as exc:
+        candidates: list[Path] = []
+        if local_dir is not None:
+            candidates.append(local_dir)
+        candidates.append(Path("models") / "Annotators")
+        for cand in candidates:
+            if cand.exists():
+                try:
+                    return DexiNedDetector.from_pretrained(cand).to(dev)
+                except Exception:  # pragma: no cover - best effort
+                    continue
         msg = (
             "Modell-Download fehlgeschlagen: lllyasviel/Annotators. "
             "Bitte Netzwerk prüfen oder lokalen Pfad nutzen."
@@ -247,6 +287,9 @@ def guided_smooth_if_available(pil_img: Image.Image) -> Image.Image:
 
     Returns:
         Image.Image: Smoothed image.
+
+    Raises:
+        None
 
     """
     if cv2 is None:
@@ -274,6 +317,9 @@ def get_dexined(
 
     Returns:
         Image.Image: Edge map in ``L`` mode.
+
+    Raises:
+        RuntimeError: If OpenCV is not available.
 
     """
     import torch
@@ -325,6 +371,9 @@ def rescale_edge(edge: Image.Image, w: int, h: int) -> Image.Image:
     Returns:
         Image.Image: Resized edge image.
 
+    Raises:
+        None
+
     """
     return edge.resize((w, h), Image.Resampling.NEAREST)
 
@@ -333,14 +382,25 @@ def rescale_edge(edge: Image.Image, w: int, h: int) -> Image.Image:
 
 
 @lru_cache(maxsize=1)
-def load_sd15_lineart():
+def load_sd15_lineart(
+    model_id: str | Path = "stable-diffusion-v1-5/stable-diffusion-v1-5",
+    controlnet_id: str | Path = "lllyasviel/control_v11p_sd15_lineart",
+    local_model_dir: Path | None = None,
+    local_controlnet_dir: Path | None = None,
+):
     """Load SD1.5 + ControlNet Lineart with memory-friendly options.
+
+    Args:
+        model_id: Hugging Face model identifier for the base pipeline.
+        controlnet_id: Hugging Face identifier for the ControlNet weights.
+        local_model_dir: Optional local directory for the pipeline.
+        local_controlnet_dir: Optional local directory for ControlNet weights.
 
     Returns:
         StableDiffusionControlNetImg2ImgPipeline: Initialised pipeline.
 
     Raises:
-        RuntimeError: If models fail to download.
+        RuntimeError: If models fail to download or load locally.
 
     """
     from diffusers import (  # type: ignore[import]
@@ -351,21 +411,50 @@ def load_sd15_lineart():
     device = detect_device()
     dtype = detect_dtype(device)
     try:
-        controlnet = ControlNetModel.from_pretrained(
-            "lllyasviel/control_v11p_sd15_lineart", torch_dtype=dtype
-        )
+        controlnet = ControlNetModel.from_pretrained(controlnet_id, torch_dtype=dtype)
         pipe = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(
-            "stable-diffusion-v1-5/stable-diffusion-v1-5",
+            model_id,
             controlnet=controlnet,
             safety_checker=None,
             torch_dtype=dtype,
         )
     except (RequestsConnectionError, HTTPError, OSError) as exc:
-        msg = (
-            "Modell-Download fehlgeschlagen: ControlNet oder SD1.5. "
-            "Bitte Netzwerk prüfen oder lokalen Pfad nutzen."
-        )
-        raise RuntimeError(msg) from exc
+        cn_candidates = [
+            p
+            for p in [
+                local_controlnet_dir,
+                Path("models") / "control_v11p_sd15_lineart",
+            ]
+            if p is not None
+        ]
+        sd_candidates = [
+            p for p in [local_model_dir, Path("models") / "sd15"] if p is not None
+        ]
+        pipe = None
+        for cn in cn_candidates:
+            for sd in sd_candidates:
+                if cn.exists() and sd.exists():
+                    try:
+                        controlnet = ControlNetModel.from_pretrained(
+                            cn, torch_dtype=dtype
+                        )
+                        pipe = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(
+                            sd,
+                            controlnet=controlnet,
+                            safety_checker=None,
+                            torch_dtype=dtype,
+                        )
+                        break
+                    except Exception:  # pragma: no cover - best effort
+                        continue
+            if pipe is not None:
+                break
+        if pipe is None:
+            msg = (
+                "Modell-Download fehlgeschlagen: ControlNet oder SD1.5. "
+                "Bitte Netzwerk prüfen oder lokalen Pfad nutzen."
+            )
+            raise RuntimeError(msg) from exc
     pipe.to(device)
     try:
         pipe.enable_xformers_memory_efficient_attention()
@@ -461,6 +550,12 @@ def process_one(
         cfg: Processing configuration.
         log: Callback for logging.
 
+    Returns:
+        None
+
+    Raises:
+        None
+
     """
     t0 = time.perf_counter()
     try:
@@ -541,27 +636,36 @@ def process_folder(
         stop_event: Optional stop flag.
         progress_cb: Optional progress callback.
 
+    Returns:
+        None
+
+    Raises:
+        None
+
     """
-    imgs = list_images(inp_dir)
-    if not imgs:
-        log("Keine Eingabebilder gefunden.")
+    try:
+        imgs = list_images(inp_dir)
+        if not imgs:
+            log("Keine Eingabebilder gefunden.")
+            done_cb()
+            return
+        total = len(imgs)
+        if shutil.disk_usage(out_dir).free < MIN_DISK_SPACE:
+            log("FEHLER: Zu wenig Speicherplatz im Ausgabeverzeichnis")
+            done_cb()
+            return
+        for i, p in enumerate(imgs, 1):
+            if stop_event is not None and stop_event.is_set():
+                log("Verarbeitung abgebrochen.")
+                break
+            process_one(p, out_dir, cfg, log)
+            if progress_cb:
+                progress_cb(i, total, p)
+        else:
+            log("\nALLE BILDER ERLEDIGT.")
         done_cb()
-        return
-    total = len(imgs)
-    if shutil.disk_usage(out_dir).free < MIN_DISK_SPACE:
-        log("FEHLER: Zu wenig Speicherplatz im Ausgabeverzeichnis")
-        done_cb()
-        return
-    for i, p in enumerate(imgs, 1):
-        if stop_event is not None and stop_event.is_set():
-            log("Verarbeitung abgebrochen.")
-            break
-        process_one(p, out_dir, cfg, log)
-        if progress_cb:
-            progress_cb(i, total, p)
-    else:
-        log("\nALLE BILDER ERLEDIGT.")
-    done_cb()
+    finally:
+        cleanup_models()
 
 
 def prefetch_models(log: Callable[[str], None]) -> None:
@@ -570,8 +674,35 @@ def prefetch_models(log: Callable[[str], None]) -> None:
     Args:
         log: Logger callback.
 
+    Returns:
+        None
+
+    Raises:
+        None
+
     """
     log("Lade Modelle vom Hub … (einmalig)")
     _ = load_dexined(device="cpu")
     _ = load_sd15_lineart()
     log("Modelle vorhanden.\n")
+
+
+def cleanup_models() -> None:
+    """Release loaded models and free GPU memory.
+
+    Returns:
+        None
+
+    Raises:
+        None
+
+    """
+    import gc
+
+    import torch
+
+    load_dexined.cache_clear()
+    load_sd15_lineart.cache_clear()
+    gc.collect()
+    if torch.cuda.is_available():  # pragma: no cover - hardware specific
+        torch.cuda.empty_cache()
