@@ -49,7 +49,6 @@ Prüft PEP 257-konforme Docstrings. (Alternativ kannst du die D-Regeln über Ruf
 
 
 
-
 ---
 
 Minimal sinnvolle Reihenfolge (CLI)
@@ -133,19 +132,19 @@ pydocstyle src/
 ## 6. DOKUMENTATION UND USABILITY
 - [x] README.md Struktur: Installation → Quickstart → Features → Parameter → Troubleshooting → Lizenz
 - [ ] Screenshots der GUI mit Annotationen für jeden Bereich einfügen
-- [ ] Modell-Links mit exakten Hugging Face URLs: `lllyasviel/Annotators`, `lllyasviel/control_v11p_sd15_lineart`
+- [x] Modell-Links mit exakten Hugging Face URLs: `lllyasviel/Annotators`, `lllyasviel/control_v11p_sd15_lineart`
 - [x] Lizenz-Section: CreativeML OpenRAIL-M für SD 1.5, Apache 2.0 für ControlNet
-- [ ] requirements.txt aufräumen: torch, diffusers, transformers, accelerate, controlnet-aux, pillow, opencv-python, scikit-image, numpy, xformers, vtracer
-- [ ] Python-Version spezifizieren: >=3.8,<3.12 (wegen Dependencies)
+- [x] requirements.txt aufräumen: torch, diffusers, transformers, accelerate, controlnet-aux, pillow, opencv-python, scikit-image, numpy, xformers, vtracer
+- [x] Python-Version spezifizieren: >=3.8,<3.12 (wegen Dependencies)
 - [x] Troubleshooting-FAQ: CUDA nicht gefunden, OOM-Errors, langsame CPU-Inferenz, Modell-Download-Fehler
-- [ ] Beispiel-Input/Output Bilder im `examples/` Ordner
-- [ ] Default-Werte dokumentieren und begründen (z.B. warum Steps=32)
+- [x] Beispiel-Input/Output Bilder im `examples/` Ordner
+- [x] Default-Werte dokumentieren und begründen (z.B. warum Steps=32)
 - [ ] Performance-Benchmarks: Zeiten für verschiedene Bildgrößen auf verschiedenen GPUs
 
 ## 7. GUI-SPEZIFISCHE VERBESSERUNGEN
-- [ ] Preset-Buttons mit Lambda-Functions: Quick (16 steps), Standard (32), Quality (50), Technical (40)
+- [x] Preset-Buttons mit Lambda-Functions: Quick (16 steps), Standard (32), Quality (50), Technical (40)
 - [ ] Tooltips via `CreateToolTip` Klasse für jeden Parameter mit Erklärung und Wertebereich
-- [ ] ttk.Progressbar mit determinate mode: Maximum = Anzahl Bilder, Update nach jedem Bild
+- [x] ttk.Progressbar mit determinate mode: Maximum = Anzahl Bilder, Update nach jedem Bild
 - [ ] tkinterdnd2 für Drag&Drop oder Fallback auf Browse-Button
 - [ ] Settings in JSON speichern: `~/.dexined_pipeline/settings.json` mit last_input, last_output, parameters
 - [ ] Status-Icons: ✓ für fertig, ⚡ für processing, ❌ für Fehler, ⏸ für pausiert
