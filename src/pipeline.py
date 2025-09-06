@@ -36,7 +36,19 @@ from skimage.morphology.footprints import square  # type: ignore[import]
 
 logger = logging.getLogger(__name__)
 
+# Supported image extensions.
 IMG_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"}
+
+# Common constants
+MIN_IMG_SIZE = 64
+MAX_IMG_SIZE = 4096
+DEFAULT_MAX_LONG = 896
+MIN_DISK_SPACE = 100 * 1024 * 1024  # 100 MiB
+DEFAULT_STEPS = 32
+DEFAULT_GUIDANCE = 6.0
+DEFAULT_CTRL_SCALE = 1.0
+DEFAULT_STRENGTH = 0.70
+DEFAULT_SEED = 42
 
 
 class Config(TypedDict):
@@ -53,7 +65,12 @@ class Config(TypedDict):
 
 
 def detect_device() -> str:
-    """Return best available torch device string."""
+    """Return the best available torch device string.
+
+    Returns:
+        str: ``"cuda"``, ``"mps"`` or ``"cpu"`` depending on availability.
+
+    """
     import torch
 
     if torch.cuda.is_available():
@@ -64,7 +81,15 @@ def detect_device() -> str:
 
 
 def detect_dtype(device: str):
-    """Return preferred torch dtype for *device*."""
+    """Return preferred torch dtype for *device*.
+
+    Args:
+        device: Torch device string.
+
+    Returns:
+        torch.dtype: Appropriate dtype for the given device.
+
+    """
     import torch
 
     if device == "cuda" or device == "mps":
@@ -77,38 +102,89 @@ def detect_dtype(device: str):
 
 
 def list_images(folder: Path) -> list[Path]:
-    """Return all image paths in *folder* with a supported extension."""
+    """Return all image paths in *folder* with a supported extension.
+
+    Args:
+        folder: Directory to scan.
+
+    Returns:
+        list[Path]: Sorted list of image paths.
+
+    """
     return [p for p in folder.glob("*") if p.suffix.lower() in IMG_EXTS]
 
 
-def resize_img(w: int, h: int, max_long: int = 896) -> tuple[int, int]:
-    """Scale dimensions to multiples of eight, limiting the longest side."""
+def resize_img(w: int, h: int, max_long: int = DEFAULT_MAX_LONG) -> tuple[int, int]:
+    """Scale dimensions to multiples of eight, limiting the longest side.
+
+    Args:
+        w: Width in pixels.
+        h: Height in pixels.
+        max_long: Maximum size of the longest edge.
+
+    Returns:
+        tuple[int, int]: Resized width and height.
+
+    """
     if max(w, h) > max_long:
         scale = max_long / max(w, h)
         w, h = int(w * scale), int(h * scale)
-    return max(64, (w // 8) * 8), max(64, (h // 8) * 8)
+    return max(MIN_IMG_SIZE, (w // 8) * 8), max(MIN_IMG_SIZE, (h // 8) * 8)
 
 
 def ensure_dir(p: Path) -> Path:
-    """Create directory *p* if needed and return the path."""
+    """Create directory *p* if needed and return the path.
+
+    Args:
+        p: Directory to create.
+
+    Returns:
+        Path: The created directory path.
+
+    """
     p.mkdir(parents=True, exist_ok=True)
     return p
 
 
 def ensure_rgb(img: Image.Image) -> Image.Image:
-    """Convert *img* to RGB mode if necessary."""
+    """Convert *img* to RGB mode if necessary.
+
+    Args:
+        img: Input image.
+
+    Returns:
+        Image.Image: RGB image.
+
+    """
     return img.convert("RGB") if img.mode != "RGB" else img
 
 
 def postprocess_lineart(img: Image.Image) -> Image.Image:
-    """Binarise *img* for crisp black/white output."""
+    """Binarise *img* for crisp black/white output.
+
+    Args:
+        img: Grayscale or RGB image.
+
+    Returns:
+        Image.Image: Thresholded single-channel image.
+
+    """
     return (
         img.convert("L").point(lambda v: 255 if v > 200 else 0, mode="1").convert("L")
     )
 
 
 def save_svg_vtracer(png_path: Path, svg_path: Path) -> bool:
-    """Convert *png_path* to SVG via ``vtracer`` and save to *svg_path*."""
+    """Convert *png_path* to SVG via ``vtracer`` and save to *svg_path*.
+
+    Args:
+        png_path: Input PNG file.
+        svg_path: Target SVG path.
+
+    Returns:
+        bool: ``True`` if conversion succeeded.
+
+    """
     try:
         subprocess.run(
             [
@@ -137,7 +213,18 @@ def save_svg_vtracer(png_path: Path, svg_path: Path) -> bool:
 
 @lru_cache(maxsize=1)
 def load_dexined(device: str | None = None):
-    """Load the DexiNed edge detector on the requested *device*."""
+    """Load the DexiNed edge detector on the requested *device*.
+
+    Args:
+        device: Optional torch device string.
+
+    Returns:
+        DexiNedDetector: Loaded detector instance.
+
+    Raises:
+        RuntimeError: If the model cannot be downloaded.
+
+    """
     from controlnet_aux import DexiNedDetector  # type: ignore[import]
 
     dev = detect_device() if device is None else device
@@ -153,7 +240,15 @@ def load_dexined(device: str | None = None):
 
 
 def guided_smooth_if_available(pil_img: Image.Image) -> Image.Image:
-    """Apply detail-preserving denoising."""
+    """Apply detail-preserving denoising.
+
+    Args:
+        pil_img: Input RGB image.
+
+    Returns:
+        Image.Image: Smoothed image.
+
+    """
     if cv2 is None:
         return pil_img
     arr = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
@@ -170,7 +265,17 @@ def get_dexined(
     scales: tuple[float, ...] = (1.0, 0.75, 1.25),
     pre_smooth: bool = True,
 ) -> Image.Image:
-    """Run DexiNed on *pil_img* and return a grayscale edge map."""
+    """Run DexiNed on *pil_img* and return a grayscale edge map.
+
+    Args:
+        pil_img: Input image.
+        scales: Rescaling factors for multi-scale inference.
+        pre_smooth: Whether to apply denoising before detection.
+
+    Returns:
+        Image.Image: Edge map in ``L`` mode.
+
+    """
     import torch
 
     if cv2 is None:
@@ -210,7 +315,17 @@ def get_dexined(
 
 
 def rescale_edge(edge: Image.Image, w: int, h: int) -> Image.Image:
-    """Resize edge image back to original resolution."""
+    """Resize edge image back to original resolution.
+
+    Args:
+        edge: Edge map to resize.
+        w: Target width.
+        h: Target height.
+
+    Returns:
+        Image.Image: Resized edge image.
+
+    """
     return edge.resize((w, h), Image.Resampling.NEAREST)
 
 
@@ -219,7 +334,15 @@ def rescale_edge(edge: Image.Image, w: int, h: int) -> Image.Image:
 
 @lru_cache(maxsize=1)
 def load_sd15_lineart():
-    """Load SD1.5 + ControlNet Lineart with memory-friendly options."""
+    """Load SD1.5 + ControlNet Lineart with memory-friendly options.
+
+    Returns:
+        StableDiffusionControlNetImg2ImgPipeline: Initialised pipeline.
+
+    Raises:
+        RuntimeError: If models fail to download.
+
+    """
     from diffusers import (  # type: ignore[import]
         ControlNetModel,
         StableDiffusionControlNetImg2ImgPipeline,
@@ -259,14 +382,32 @@ def load_sd15_lineart():
 def sd_refine(
     base_rgb: Image.Image,
     ctrl_L: Image.Image,
-    steps: int = 32,
-    guidance: float = 6.0,
-    ctrl_scale: float = 1.0,
-    strength: float = 0.70,
-    seed: int = 42,
-    max_long: int = 896,
+    steps: int = DEFAULT_STEPS,
+    guidance: float = DEFAULT_GUIDANCE,
+    ctrl_scale: float = DEFAULT_CTRL_SCALE,
+    strength: float = DEFAULT_STRENGTH,
+    seed: int = DEFAULT_SEED,
+    max_long: int = DEFAULT_MAX_LONG,
 ) -> tuple[Image.Image, Image.Image]:
-    """Refine edges with SD1.5 + ControlNet and return color and BW images."""
+    """Refine edges with SD1.5 + ControlNet.
+
+    Args:
+        base_rgb: Original RGB image.
+        ctrl_L: Control image (edge map).
+        steps: Number of diffusion steps.
+        guidance: CFG scale.
+        ctrl_scale: ControlNet conditioning scale.
+        strength: Img2Img strength.
+        seed: Random seed.
+        max_long: Longest edge in pixels.
+
+    Returns:
+        tuple[Image.Image, Image.Image]: Refined color and BW images.
+
+    Raises:
+        RuntimeError: On GPU out-of-memory.
+
+    """
     import torch
 
     pipe = load_sd15_lineart()
@@ -312,7 +453,15 @@ def sd_refine(
 def process_one(
     path: Path, out_dir: Path, cfg: Config, log: Callable[[str], None]
 ) -> None:
-    """Process a single image and write outputs to *out_dir*."""
+    """Process a single image and write outputs to *out_dir*.
+
+    Args:
+        path: Image file to process.
+        out_dir: Output directory.
+        cfg: Processing configuration.
+        log: Callback for logging.
+
+    """
     t0 = time.perf_counter()
     try:
         with Image.open(path) as img:
@@ -322,7 +471,12 @@ def process_one(
         log(f"FEHLER: {path.name} – {exc}")
         return
 
-    if src.width < 64 or src.height < 64 or src.width > 4096 or src.height > 4096:
+    if (
+        src.width < MIN_IMG_SIZE
+        or src.height < MIN_IMG_SIZE
+        or src.width > MAX_IMG_SIZE
+        or src.height > MAX_IMG_SIZE
+    ):
         log(f"FEHLER: {path.name} hat ungültige Abmessungen")
         return
 
@@ -376,14 +530,25 @@ def process_folder(
     stop_event: threading.Event | None = None,
     progress_cb: Callable[[int, int, Path], None] | None = None,
 ) -> None:
-    """Process all supported images from *inp_dir* into *out_dir*."""
+    """Process all supported images from *inp_dir* into *out_dir*.
+
+    Args:
+        inp_dir: Input directory.
+        out_dir: Output directory.
+        cfg: Processing configuration.
+        log: Logger callback.
+        done_cb: Callback invoked when finished.
+        stop_event: Optional stop flag.
+        progress_cb: Optional progress callback.
+
+    """
     imgs = list_images(inp_dir)
     if not imgs:
         log("Keine Eingabebilder gefunden.")
         done_cb()
         return
     total = len(imgs)
-    if shutil.disk_usage(out_dir).free < 100 * 1024 * 1024:
+    if shutil.disk_usage(out_dir).free < MIN_DISK_SPACE:
         log("FEHLER: Zu wenig Speicherplatz im Ausgabeverzeichnis")
         done_cb()
         return
@@ -400,7 +565,12 @@ def process_folder(
 
 
 def prefetch_models(log: Callable[[str], None]) -> None:
-    """Download all required models ahead of time."""
+    """Download all required models ahead of time.
+
+    Args:
+        log: Logger callback.
+
+    """
     log("Lade Modelle vom Hub … (einmalig)")
     _ = load_dexined(device="cpu")
     _ = load_sd15_lineart()
