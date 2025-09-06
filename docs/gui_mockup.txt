@@ -1,0 +1,11 @@
++---------------------------------------+
+| Input Dir  [Browse] [Start] [Stop]    |
+| Output Dir [Browse]                   |
+|                                       |
+| Steps: [32] Guidance: [6.0]           |
+| Ctrl-Scale: [1.0] Strength: [0.70]    |
+| Seed: [42] Max Edge: [896]            |
+|                                       |
+| [ Progress bar ------------------- ]  |
+| Status: Idle                          |
++---------------------------------------+
