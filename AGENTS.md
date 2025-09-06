@@ -107,24 +107,24 @@ pydocstyle src/
 - [x] GUI-Updates nur im Main-Thread via `self.after(0, lambda: widget.config(...))`
 
 ## 4. FEHLERBEHANDLUNG UND ROBUSTHEIT
-- [ ] Try-except um Modell-Downloads mit spezifischen Fehlermeldungen (ConnectionError, HTTPError, OSError)
+- [x] Try-except um Modell-Downloads mit spezifischen Fehlermeldungen (ConnectionError, HTTPError, OSError) ✅
 - [x] Bildvalidierung: Mindestgröße 64x64, Maximalgröße 4096x4096, unterstützte Formate (.jpg, .png, .webp)
 - [x] Korrupte Bilder abfangen: try-except um PIL.Image.open() mit verify()
 - [x] Schreibrechte prüfen: `os.access(output_dir, os.W_OK)` vor Verarbeitung
-- [ ] OOM-Handling: except torch.cuda.OutOfMemoryError mit Hinweis auf Bildgröße/Batch-Size
-- [ ] Netzwerk-Fallback: Bei Download-Fehler auf lokale Modell-Pfade hinweisen
+- [x] OOM-Handling: except torch.cuda.OutOfMemoryError mit Hinweis auf Bildgröße/Batch-Size ✅
+- [x] Netzwerk-Fallback: Bei Download-Fehler auf lokale Modell-Pfade hinweisen ✅
 - [x] CUDA-Verfügbarkeit: Explizite Meldung wenn nur CPU verfügbar (Warnung vor langer Laufzeit)
 - [x] Disk-Space-Check: Prüfen ob genug Speicherplatz für Outputs vorhanden
 - [ ] Modell-Loading-Fallbacks: Bei Fehler alternative Modell-IDs oder lokale Pfade versuchen
 - [ ] Graceful Shutdown: Ressourcen in finally-Blöcken freigeben, Modelle aus VRAM entladen
 
 ## 5. CODE-QUALITÄT
-- [ ] Type Hints für ALLE Funktionsparameter: `def function(param: str, number: int) -> Optional[Path]:`
-- [ ] Type Hints für Rückgabewerte, auch bei None: `-> None`
+- [x] Type Hints für ALLE Funktionsparameter: `def function(param: str, number: int) -> Optional[Path]:` ✅
+- [x] Type Hints für Rückgabewerte, auch bei None: `-> None` ✅
 - [ ] Google-Style Docstrings mit Args, Returns, Raises Sections für jede Funktion
 - [ ] Klassen-Docstrings mit Attributes-Section für alle Instance-Variablen
-- [ ] Black-Formatierung: Zeilen max 88 Zeichen, konsistente Quotes
-- [ ] Ruff-Linting: Import-Sortierung, unused imports entfernen
+- [x] Black-Formatierung: Zeilen max 88 Zeichen, konsistente Quotes ✅
+- [x] Ruff-Linting: Import-Sortierung, unused imports entfernen ✅
 - [ ] Pathlib überall: keine String-Pfade, immer `Path` objects
 - [ ] Konstanten in UPPER_CASE am Dateianfang definieren
 - [ ] Magic Numbers durch benannte Konstanten ersetzen (z.B. DEFAULT_STEPS = 32)
@@ -186,3 +186,6 @@ pydocstyle src/
 | AGENT-301 | Logging & Queue in GUI | ✅ | 2be2d20 |
 | AGENT-401 | Bildvalidierung & Schreibrechte | ✅ | 2be2d20 |
 | AGENT-601 | README Struktur & Troubleshooting | ✅ | 2be2d20 |
+| AGENT-402 | Modell-Download-Fehler behandeln | ✅ | 53bc7a6, tests/test_errors.py |
+| AGENT-403 | OOM-Handling im SD-Refine | ✅ | 53bc7a6, tests/test_errors.py |
+| AGENT-501 | Typisierung & Black-Format | ✅ | 53bc7a6 |
