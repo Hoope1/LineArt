@@ -111,13 +111,16 @@ def detect_dtype(device: str) -> torch.dtype:
     """
     import torch
 
-    if device == "cuda" or device == "mps":
+    if device == "cuda":
+        return (
+            torch.bfloat16
+            if getattr(torch.cuda, "is_bf16_supported", lambda: False)()
+            else torch.float16
+        )
+    if device == "mps":
         return torch.float16
-    return (
-        torch.bfloat16
-        if getattr(torch.cuda, "is_bf16_supported", lambda: False)()
-        else torch.float32
-    )
+    cpu_bf16 = getattr(torch.cpu, "_is_avx512_bf16_supported", lambda: False)()
+    return torch.bfloat16 if cpu_bf16 else torch.float32
 
 
 def list_images(folder: Path) -> list[Path]:
@@ -133,7 +136,7 @@ def list_images(folder: Path) -> list[Path]:
         None
 
     """
-    return [p for p in folder.glob("*") if p.suffix.lower() in IMG_EXTS]
+    return sorted(p for p in folder.glob("*") if p.suffix.lower() in IMG_EXTS)
 
 
 def resize_img(w: int, h: int, max_long: int = DEFAULT_MAX_LONG) -> tuple[int, int]:
@@ -683,6 +686,7 @@ def process_folder(  # noqa: C901
     import torch
 
     try:
+        ensure_dir(out_dir)
         imgs = list_images(inp_dir)
         if not imgs:
             log("Keine Eingabebilder gefunden.")

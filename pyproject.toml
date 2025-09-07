@@ -5,14 +5,20 @@ requires-python = ">=3.8,<3.12"
 dependencies = [
     "torch",
     "diffusers",
+    "transformers",
+    "accelerate",
     "controlnet-aux",
     "pillow",
     "opencv-python",
     "scikit-image",
     "numpy",
     "requests",
-    "tkinterdnd2",
+    "xformers",
 ]
+
+[project.optional-dependencies]
+gui = ["tkinterdnd2"]
+svg = ["vtracer"]
 
 [tool.black]
 line-length = 88
