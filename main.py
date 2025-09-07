@@ -3,10 +3,12 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import queue
 import threading
+import time
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
@@ -30,8 +32,51 @@ WINDOW_GEOMETRY = "820x720"
 LOG_INTERVAL_MS = 100
 PAD = {"padx": 8, "pady": 6}
 
+SETTINGS_FILE = Path.home() / ".dexined_pipeline" / "settings.json"
+
+
+class CreateToolTip:
+    """Simple tooltip implementation for Tk widgets."""
+
+    def __init__(self, widget: tk.Widget, text: str) -> None:
+        """Store widget reference and register events."""
+        self.widget = widget
+        self.text = text
+        self.tipwindow: tk.Toplevel | None = None
+        widget.bind("<Enter>", self.show_tip)
+        widget.bind("<Leave>", self.hide_tip)
+
+    def show_tip(self, _event: tk.Event) -> None:  # type: ignore[override]
+        """Display the tooltip window."""
+        if self.tipwindow:
+            return
+        bbox = self.widget.bbox("insert") or (0, 0, 0, 0)
+        x, y = bbox[0], bbox[1]
+        x += self.widget.winfo_rootx() + 25
+        y += self.widget.winfo_rooty() + 20
+        self.tipwindow = tw = tk.Toplevel(self.widget)
+        tw.wm_overrideredirect(True)
+        tw.wm_geometry(f"+{x}+{y}")
+        label = tk.Label(
+            tw,
+            text=self.text,
+            justify="left",
+            background="#ffffe0",
+            relief="solid",
+            borderwidth=1,
+            font=("tahoma", "8", "normal"),
+        )
+        label.pack(ipadx=1)
+
+    def hide_tip(self, _event: tk.Event) -> None:  # type: ignore[override]
+        """Hide the tooltip window."""
+        if self.tipwindow:
+            self.tipwindow.destroy()
+            self.tipwindow = None
+
+
 LogMessage = tuple[str, str]
-ProgressMessage = tuple[str, int, int]
+ProgressMessage = tuple[str, int, int, str]
 QueueItem = LogMessage | ProgressMessage
 
 logging.basicConfig(
@@ -93,7 +138,13 @@ class App(tk.Tk):
         _ = self.after(LOG_INTERVAL_MS, self.process_log_queue)
         self.stop_event: threading.Event = threading.Event()
         self.progress_total: int = 0
+        self.start_time: float = 0.0
 
+        self.status_var: tk.StringVar = tk.StringVar(value="Bereit")
+
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
+
+        self._load_settings()
         self._build()
 
         self.running: bool = False
@@ -111,71 +162,72 @@ class App(tk.Tk):
         """
         pad_x, pad_y = PAD["padx"], PAD["pady"]
 
-        frm_paths = ttk.LabelFrame(self, text="Ordner")
-        frm_paths.pack(fill="x", padx=pad_x, pady=pad_y)
+        frm_io = ttk.LabelFrame(self, text="Eingabe/Ausgabe")
+        frm_io.pack(fill="x", padx=pad_x, pady=pad_y)
 
-        ttk.Label(frm_paths, text="Eingabe:").grid(row=0, column=0, sticky="e")
-        ttk.Entry(frm_paths, textvariable=self.inp_var, width=70).grid(
-            row=0, column=1, sticky="we"
+        ttk.Label(frm_io, text="Eingabe:").grid(row=0, column=0, sticky="e")
+        inp_entry = ttk.Entry(frm_io, textvariable=self.inp_var, width=70)
+        inp_entry.grid(row=0, column=1, sticky="we")
+        ttk.Button(frm_io, text="…", command=self.pick_inp).grid(row=0, column=2)
+        CreateToolTip(inp_entry, "Ordner mit Eingabebildern")
+
+        ttk.Label(frm_io, text="Ausgabe:").grid(row=1, column=0, sticky="e")
+        out_entry = ttk.Entry(frm_io, textvariable=self.out_var, width=70)
+        out_entry.grid(row=1, column=1, sticky="we")
+        ttk.Button(frm_io, text="…", command=self.pick_out).grid(row=1, column=2)
+        CreateToolTip(out_entry, "Ordner für Ausgabebilder")
+
+        frm_quality = ttk.LabelFrame(self, text="Qualität")
+        frm_quality.pack(fill="x", padx=pad_x, pady=pad_y)
+
+        ttk.Label(frm_quality, text="Steps").grid(row=0, column=0, sticky="e")
+        steps_entry = ttk.Entry(frm_quality, textvariable=self.steps, width=6)
+        steps_entry.grid(row=0, column=1, sticky="w")
+        CreateToolTip(steps_entry, "Diffusionsschritte (1-100, Standard 32)")
+        ttk.Label(frm_quality, text="Guidance").grid(row=0, column=2, sticky="e")
+        guidance_entry = ttk.Entry(frm_quality, textvariable=self.guidance, width=6)
+        guidance_entry.grid(row=0, column=3, sticky="w")
+        CreateToolTip(guidance_entry, "Guidance Scale (0-20, Standard 6.0)")
+        ttk.Label(frm_quality, text="Ctrl-Scale").grid(row=0, column=4, sticky="e")
+        ctrl_entry = ttk.Entry(frm_quality, textvariable=self.ctrl, width=6)
+        ctrl_entry.grid(row=0, column=5, sticky="w")
+        CreateToolTip(ctrl_entry, "ControlNet Einfluss (0-2, Standard 1.0)")
+        ttk.Label(frm_quality, text="Strength (img2img)").grid(
+            row=1, column=0, sticky="e"
         )
-        ttk.Button(frm_paths, text="…", command=self.pick_inp).grid(row=0, column=2)
+        strength_entry = ttk.Entry(frm_quality, textvariable=self.strength, width=6)
+        strength_entry.grid(row=1, column=1, sticky="w")
+        CreateToolTip(strength_entry, "Img2Img Stärke (0-1, Standard 0.7)")
 
-        ttk.Label(frm_paths, text="Ausgabe:").grid(row=1, column=0, sticky="e")
-        ttk.Entry(frm_paths, textvariable=self.out_var, width=70).grid(
-            row=1, column=1, sticky="we"
+        frm_performance = ttk.LabelFrame(self, text="Performance")
+        frm_performance.pack(fill="x", padx=pad_x, pady=pad_y)
+        ttk.Label(frm_performance, text="Max lange Kante (px)").grid(
+            row=0, column=0, sticky="e"
         )
-        ttk.Button(frm_paths, text="…", command=self.pick_out).grid(row=1, column=2)
+        max_entry = ttk.Entry(frm_performance, textvariable=self.max_long, width=6)
+        max_entry.grid(row=0, column=1, sticky="w")
+        CreateToolTip(max_entry, "Maximale Bildkante (64-4096, Standard 896)")
 
-        frm_opts = ttk.LabelFrame(self, text="Optionen")
-        frm_opts.pack(fill="x", padx=pad_x, pady=pad_y)
-
-        ttk.Checkbutton(
-            frm_opts,
+        frm_adv = ttk.LabelFrame(self, text="Erweitert")
+        frm_adv.pack(fill="x", padx=pad_x, pady=pad_y)
+        sd_chk = ttk.Checkbutton(
+            frm_adv,
             text="SD-Refinement (SD1.5 + ControlNet Lineart)",
             variable=self.use_sd,
-        ).grid(
-            row=0,
-            column=0,
-            sticky="w",
-            columnspan=3,
         )
-        ttk.Checkbutton(
-            frm_opts,
+        sd_chk.grid(row=0, column=0, sticky="w", columnspan=2)
+        CreateToolTip(sd_chk, "Stable Diffusion Verfeinerung aktivieren")
+        svg_chk = ttk.Checkbutton(
+            frm_adv,
             text="SVG speichern (VTracer)",
             variable=self.save_svg,
-        ).grid(
-            row=0,
-            column=3,
-            sticky="w",
         )
-
-        ttk.Label(frm_opts, text="Steps").grid(row=1, column=0, sticky="e")
-        ttk.Entry(frm_opts, textvariable=self.steps, width=6).grid(
-            row=1, column=1, sticky="w"
-        )
-        ttk.Label(frm_opts, text="Guidance").grid(row=1, column=2, sticky="e")
-        ttk.Entry(frm_opts, textvariable=self.guidance, width=6).grid(
-            row=1, column=3, sticky="w"
-        )
-        ttk.Label(frm_opts, text="Ctrl-Scale").grid(row=1, column=4, sticky="e")
-        ttk.Entry(frm_opts, textvariable=self.ctrl, width=6).grid(
-            row=1, column=5, sticky="w"
-        )
-
-        ttk.Label(frm_opts, text="Strength (img2img)").grid(row=2, column=0, sticky="e")
-        ttk.Entry(frm_opts, textvariable=self.strength, width=6).grid(
-            row=2, column=1, sticky="w"
-        )
-        ttk.Label(frm_opts, text="Seed").grid(row=2, column=2, sticky="e")
-        ttk.Entry(frm_opts, textvariable=self.seed, width=8).grid(
-            row=2, column=3, sticky="w"
-        )
-        ttk.Label(frm_opts, text="Max lange Kante (px)").grid(
-            row=2, column=4, sticky="e"
-        )
-        ttk.Entry(frm_opts, textvariable=self.max_long, width=6).grid(
-            row=2, column=5, sticky="w"
-        )
+        svg_chk.grid(row=0, column=2, sticky="w")
+        CreateToolTip(svg_chk, "SVG-Ausgabe erzeugen")
+        ttk.Label(frm_adv, text="Seed").grid(row=1, column=0, sticky="e")
+        seed_entry = ttk.Entry(frm_adv, textvariable=self.seed, width=8)
+        seed_entry.grid(row=1, column=1, sticky="w")
+        CreateToolTip(seed_entry, "Zufalls-Seed (Standard 42)")
 
         frm_presets = ttk.LabelFrame(self, text="Presets")
         frm_presets.pack(fill="x", padx=pad_x, pady=pad_y)
@@ -231,6 +283,54 @@ class App(tk.Tk):
         self.txt: tk.Text = tk.Text(frm_log, height=20)
         self.txt.pack(fill="both", expand=True)
 
+        ttk.Label(self, textvariable=self.status_var, anchor="w").pack(
+            fill="x", side="bottom"
+        )
+
+    def _load_settings(self) -> None:
+        """Load persisted GUI settings from disk."""
+        try:
+            data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return
+        except json.JSONDecodeError:
+            return
+        self.inp_var.set(data.get("last_input", ""))
+        self.out_var.set(data.get("last_output", ""))
+        params = data.get("params", {})
+        self.use_sd.set(params.get("use_sd", True))
+        self.save_svg.set(params.get("save_svg", True))
+        self.steps.set(params.get("steps", DEFAULT_STEPS))
+        self.guidance.set(params.get("guidance", DEFAULT_GUIDANCE))
+        self.ctrl.set(params.get("ctrl", DEFAULT_CTRL_SCALE))
+        self.strength.set(params.get("strength", DEFAULT_STRENGTH))
+        self.seed.set(params.get("seed", DEFAULT_SEED))
+        self.max_long.set(params.get("max_long", DEFAULT_MAX_LONG))
+
+    def _save_settings(self) -> None:
+        """Persist current GUI settings to disk."""
+        SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        data = {
+            "last_input": self.inp_var.get(),
+            "last_output": self.out_var.get(),
+            "params": {
+                "use_sd": bool(self.use_sd.get()),
+                "save_svg": bool(self.save_svg.get()),
+                "steps": int(self.steps.get()),
+                "guidance": float(self.guidance.get()),
+                "ctrl": float(self.ctrl.get()),
+                "strength": float(self.strength.get()),
+                "seed": int(self.seed.get()),
+                "max_long": int(self.max_long.get()),
+            },
+        }
+        SETTINGS_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+    def on_close(self) -> None:
+        """Save settings and close the application."""
+        self._save_settings()
+        self.destroy()
+
     # --- Preset-Setter ---
     def _apply_preset(self, steps: int, name: str) -> None:
         """Update step count and log preset selection."""
@@ -280,13 +380,13 @@ class App(tk.Tk):
         """
         self.log_queue.put(("log", s))
 
-    def progress(self, cur: int, total: int, _path: Path) -> None:
+    def progress(self, cur: int, total: int, path: Path) -> None:
         """Enqueue progress update.
 
         Args:
             cur: Current index.
             total: Total number of items.
-            _path: Current image path (unused).
+            path: Current image path.
 
         Returns:
             None
@@ -295,7 +395,7 @@ class App(tk.Tk):
             None
 
         """
-        self.log_queue.put(("progress", cur, total))
+        self.log_queue.put(("progress", cur, total, path.name))
 
     def process_log_queue(self) -> None:
         """Handle queued log and progress events.
@@ -314,9 +414,15 @@ class App(tk.Tk):
                 self.txt.insert("end", f"{text}\n")
                 self.txt.see("end")
             else:
-                _, cur, total = msg
+                _, cur, total, name = msg
                 self.pbar["maximum"] = total
                 self.pbar["value"] = cur
+                elapsed = time.time() - self.start_time
+                spm = cur / elapsed * 60 if elapsed > 0 else 0
+                eta = (total - cur) / (spm / 60) if spm > 0 else 0
+                self.status_var.set(
+                    f"{name} – {cur}/{total} | {spm:.1f} img/min | ETA {eta/60:.1f}m"
+                )
         _ = self.after(100, self.process_log_queue)
 
     def prefetch(self) -> None:
@@ -351,7 +457,12 @@ class App(tk.Tk):
         """
         if self.running:
             return
-        inp, out = Path(self.inp_var.get()), Path(self.out_var.get())
+        inp = Path(self.inp_var.get())
+        out_str = self.out_var.get().strip()
+        if not out_str:
+            out_str = time.strftime("output_%Y-%m-%d_%H-%M-%S")
+            self.out_var.set(out_str)
+        out = Path(out_str)
         if not inp.exists():
             messagebox.showwarning("Fehler", "Bitte Eingabeordner wählen.")
             return
@@ -383,6 +494,10 @@ class App(tk.Tk):
             "max_long": int(self.max_long.get()),
             "batch_size": 1,
         }
+
+        self._save_settings()
+        self.start_time = time.time()
+        self.status_var.set("Verarbeitung gestartet")
 
         self.running = True
         self.stop_event.clear()
@@ -417,6 +532,7 @@ class App(tk.Tk):
         self.running = False
         self.stop_event.set()
         self.log("Stop angefordert (nach aktuellem Bild).")
+        self.status_var.set("Stop angefordert")
 
     def done(self) -> None:
         """Mark the current job as finished.
@@ -433,6 +549,7 @@ class App(tk.Tk):
         self.btn_prefetch.config(state="normal")
         self.btn_stop.config(state="disabled")
         self.log("Fertig.")
+        self.status_var.set("Fertig")
 
 
 def main() -> None:
