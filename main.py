@@ -12,6 +12,7 @@ import time
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
+from typing import Any, cast
 
 from src.pipeline import (
     DEFAULT_CTRL_SCALE,
@@ -38,19 +39,23 @@ SETTINGS_FILE = Path.home() / ".dexined_pipeline" / "settings.json"
 class CreateToolTip:
     """Simple tooltip implementation for Tk widgets."""
 
+    widget: tk.Widget
+    text: str
+    tipwindow: tk.Toplevel | None
+
     def __init__(self, widget: tk.Widget, text: str) -> None:
         """Store widget reference and register events."""
         self.widget = widget
         self.text = text
-        self.tipwindow: tk.Toplevel | None = None
-        widget.bind("<Enter>", self.show_tip)
-        widget.bind("<Leave>", self.hide_tip)
+        self.tipwindow = None
+        _ = widget.bind("<Enter>", self.show_tip)
+        _ = widget.bind("<Leave>", self.hide_tip)
 
     def show_tip(self, _event: tk.Event) -> None:  # type: ignore[override]
         """Display the tooltip window."""
         if self.tipwindow:
             return
-        bbox = self.widget.bbox("insert") or (0, 0, 0, 0)
+        bbox = cast(Any, self.widget).bbox("insert") or (0, 0, 0, 0)
         x, y = bbox[0], bbox[1]
         x += self.widget.winfo_rootx() + 25
         y += self.widget.winfo_rooty() + 20
@@ -64,7 +69,7 @@ class CreateToolTip:
             background="#ffffe0",
             relief="solid",
             borderwidth=1,
-            font=("tahoma", "8", "normal"),
+            font=("tahoma", 8, "normal"),  # type: ignore[arg-type]
         )
         label.pack(ipadx=1)
 
@@ -169,13 +174,13 @@ class App(tk.Tk):
         inp_entry = ttk.Entry(frm_io, textvariable=self.inp_var, width=70)
         inp_entry.grid(row=0, column=1, sticky="we")
         ttk.Button(frm_io, text="…", command=self.pick_inp).grid(row=0, column=2)
-        CreateToolTip(inp_entry, "Ordner mit Eingabebildern")
+        _ = CreateToolTip(inp_entry, "Ordner mit Eingabebildern")
 
         ttk.Label(frm_io, text="Ausgabe:").grid(row=1, column=0, sticky="e")
         out_entry = ttk.Entry(frm_io, textvariable=self.out_var, width=70)
         out_entry.grid(row=1, column=1, sticky="we")
         ttk.Button(frm_io, text="…", command=self.pick_out).grid(row=1, column=2)
-        CreateToolTip(out_entry, "Ordner für Ausgabebilder")
+        _ = CreateToolTip(out_entry, "Ordner für Ausgabebilder")
 
         frm_quality = ttk.LabelFrame(self, text="Qualität")
         frm_quality.pack(fill="x", padx=pad_x, pady=pad_y)
@@ -183,21 +188,21 @@ class App(tk.Tk):
         ttk.Label(frm_quality, text="Steps").grid(row=0, column=0, sticky="e")
         steps_entry = ttk.Entry(frm_quality, textvariable=self.steps, width=6)
         steps_entry.grid(row=0, column=1, sticky="w")
-        CreateToolTip(steps_entry, "Diffusionsschritte (1-100, Standard 32)")
+        _ = CreateToolTip(steps_entry, "Diffusionsschritte (1-100, Standard 32)")
         ttk.Label(frm_quality, text="Guidance").grid(row=0, column=2, sticky="e")
         guidance_entry = ttk.Entry(frm_quality, textvariable=self.guidance, width=6)
         guidance_entry.grid(row=0, column=3, sticky="w")
-        CreateToolTip(guidance_entry, "Guidance Scale (0-20, Standard 6.0)")
+        _ = CreateToolTip(guidance_entry, "Guidance Scale (0-20, Standard 6.0)")
         ttk.Label(frm_quality, text="Ctrl-Scale").grid(row=0, column=4, sticky="e")
         ctrl_entry = ttk.Entry(frm_quality, textvariable=self.ctrl, width=6)
         ctrl_entry.grid(row=0, column=5, sticky="w")
-        CreateToolTip(ctrl_entry, "ControlNet Einfluss (0-2, Standard 1.0)")
+        _ = CreateToolTip(ctrl_entry, "ControlNet Einfluss (0-2, Standard 1.0)")
         ttk.Label(frm_quality, text="Strength (img2img)").grid(
             row=1, column=0, sticky="e"
         )
         strength_entry = ttk.Entry(frm_quality, textvariable=self.strength, width=6)
         strength_entry.grid(row=1, column=1, sticky="w")
-        CreateToolTip(strength_entry, "Img2Img Stärke (0-1, Standard 0.7)")
+        _ = CreateToolTip(strength_entry, "Img2Img Stärke (0-1, Standard 0.7)")
 
         frm_performance = ttk.LabelFrame(self, text="Performance")
         frm_performance.pack(fill="x", padx=pad_x, pady=pad_y)
@@ -206,7 +211,7 @@ class App(tk.Tk):
         )
         max_entry = ttk.Entry(frm_performance, textvariable=self.max_long, width=6)
         max_entry.grid(row=0, column=1, sticky="w")
-        CreateToolTip(max_entry, "Maximale Bildkante (64-4096, Standard 896)")
+        _ = CreateToolTip(max_entry, "Maximale Bildkante (64-4096, Standard 896)")
 
         frm_adv = ttk.LabelFrame(self, text="Erweitert")
         frm_adv.pack(fill="x", padx=pad_x, pady=pad_y)
@@ -216,18 +221,18 @@ class App(tk.Tk):
             variable=self.use_sd,
         )
         sd_chk.grid(row=0, column=0, sticky="w", columnspan=2)
-        CreateToolTip(sd_chk, "Stable Diffusion Verfeinerung aktivieren")
+        _ = CreateToolTip(sd_chk, "Stable Diffusion Verfeinerung aktivieren")
         svg_chk = ttk.Checkbutton(
             frm_adv,
             text="SVG speichern (VTracer)",
             variable=self.save_svg,
         )
         svg_chk.grid(row=0, column=2, sticky="w")
-        CreateToolTip(svg_chk, "SVG-Ausgabe erzeugen")
+        _ = CreateToolTip(svg_chk, "SVG-Ausgabe erzeugen")
         ttk.Label(frm_adv, text="Seed").grid(row=1, column=0, sticky="e")
         seed_entry = ttk.Entry(frm_adv, textvariable=self.seed, width=8)
         seed_entry.grid(row=1, column=1, sticky="w")
-        CreateToolTip(seed_entry, "Zufalls-Seed (Standard 42)")
+        _ = CreateToolTip(seed_entry, "Zufalls-Seed (Standard 42)")
 
         frm_presets = ttk.LabelFrame(self, text="Presets")
         frm_presets.pack(fill="x", padx=pad_x, pady=pad_y)
