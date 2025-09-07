@@ -304,26 +304,35 @@ def load_dexined(
 ) -> Any:
     """Load the DexiNed edge detector on the requested *device*.
 
+    Falls back to :class:`~controlnet_aux.lineart.LineartDetector` if the
+    installed ``controlnet_aux`` package lacks ``DexiNedDetector``.
+
     Args:
         device: Optional torch device string.
         model_id: Hugging Face model identifier.
         local_dir: Optional local model directory used as fallback.
 
     Returns:
-        DexiNedDetector: Loaded detector instance.
+        DexiNedDetector | LineartDetector: Loaded detector instance.
 
     Raises:
         RuntimeError: If the model cannot be downloaded or loaded locally.
 
     """
-    import controlnet_aux
+    try:
+        from controlnet_aux import DexiNedDetector as Detector
+    except ImportError:  # pragma: no cover - optional dependency
+        from controlnet_aux.lineart import LineartDetector as Detector
 
-    DexiNedDetector = cast(Any, controlnet_aux).DexiNedDetector
+        logger.warning(
+            "DexiNedDetector not found in controlnet_aux; "
+            "falling back to LineartDetector",
+        )
 
     dev = detect_device() if device is None else device
     logger.info("loading DexiNed on %s", dev)
     try:
-        return DexiNedDetector.from_pretrained(model_id).to(dev)
+        return Detector.from_pretrained(model_id).to(dev)
     except (RequestsConnectionError, HTTPError, OSError) as exc:
         candidates: list[Path] = []
         if local_dir is not None:
@@ -332,7 +341,7 @@ def load_dexined(
         for cand in candidates:
             if cand.exists():
                 try:
-                    return DexiNedDetector.from_pretrained(cand).to(dev)
+                    return Detector.from_pretrained(cand).to(dev)
                 except Exception:  # pragma: no cover - best effort
                     continue
         msg = (
