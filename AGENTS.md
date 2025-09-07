@@ -91,7 +91,7 @@ pydocstyle src/
 - [x] Sequential CPU-Offloading für low-memory: `pipe.enable_sequential_cpu_offload()`
 - [x] Deterministische Seeds: `torch.Generator(device).manual_seed(seed)` für jeden Inference-Call
 - [x] Dtype-Detection implementieren: `torch.float16` für CUDA, `torch.bfloat16` für neuere CPUs, sonst `torch.float32`
-- [ ] Batch-Processing für mehrere Bilder gleichzeitig (wenn genug VRAM)
+- [x] Batch-Processing für mehrere Bilder gleichzeitig (Mini-Batches mit OOM-Fallback)
 
 ## 3. THREAD-SAFETY UND GUI-STABILITÄT
 - [x] Logging-Setup in main.py: `logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')`

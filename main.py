@@ -381,6 +381,7 @@ class App(tk.Tk):
             "strength": float(self.strength.get()),
             "seed": int(self.seed.get()),
             "max_long": int(self.max_long.get()),
+            "batch_size": 1,
         }
 
         self.running = True

@@ -52,6 +52,7 @@ DEFAULT_GUIDANCE = 6.0
 DEFAULT_CTRL_SCALE = 1.0
 DEFAULT_STRENGTH = 0.70
 DEFAULT_SEED = 42
+DEFAULT_BATCH_SIZE = 1
 
 
 class Config(TypedDict):
@@ -65,6 +66,7 @@ class Config(TypedDict):
     strength: float
     seed: int
     max_long: int
+    batch_size: int
 
 
 def detect_device() -> str:
@@ -629,7 +631,7 @@ def process_one(
     )
 
 
-def process_folder(
+def process_folder(  # noqa: C901
     inp_dir: Path,
     out_dir: Path,
     cfg: Config,
@@ -656,6 +658,8 @@ def process_folder(
         None
 
     """
+    import torch
+
     try:
         imgs = list_images(inp_dir)
         if not imgs:
@@ -667,13 +671,32 @@ def process_folder(
             log("FEHLER: Zu wenig Speicherplatz im Ausgabeverzeichnis")
             done_cb()
             return
-        for i, p in enumerate(imgs, 1):
-            if stop_event is not None and stop_event.is_set():
-                log("Verarbeitung abgebrochen.")
-                break
-            process_one(p, out_dir, cfg, log)
-            if progress_cb:
-                progress_cb(i, total, p)
+
+        batch_size = max(1, cfg.get("batch_size", 1))
+        idx = 0
+        while idx < total:
+            batch = imgs[idx : idx + batch_size]
+            try:
+                for p in batch:
+                    if stop_event is not None and stop_event.is_set():
+                        log("Verarbeitung abgebrochen.")
+                        done_cb()
+                        return
+                    process_one(p, out_dir, cfg, log)
+                    idx += 1
+                    if progress_cb:
+                        progress_cb(idx, total, p)
+                if torch.cuda.is_available():  # pragma: no cover
+                    torch.cuda.empty_cache()
+            except RuntimeError as exc:
+                if "gpu out of memory" in str(exc).lower() and batch_size > 1:
+                    log("GPU OOM – reduziere Batch-Size auf 1 und versuche erneut …")
+                    batch_size = 1
+                    if torch.cuda.is_available():  # pragma: no cover
+                        torch.cuda.empty_cache()
+                    continue
+                log(f"FEHLER: {exc}")
+                idx += len(batch)
         else:
             log("\nALLE BILDER ERLEDIGT.")
         done_cb()
