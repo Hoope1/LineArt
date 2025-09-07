@@ -21,6 +21,7 @@ python main.py
 - Persistente Einstellungen in `~/.dexined_pipeline/settings.json`
 - Statusleiste mit Dateiname, Fortschritt und ETA
 - Standard-Ausgabeordner mit Zeitstempel `output_YYYY-MM-DD_HH-MM-SS`
+- Drag & Drop für Eingabe- und Ausgabepfade (optional via tkinterdnd2)
 
 ## GUI
 
