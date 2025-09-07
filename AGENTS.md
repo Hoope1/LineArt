@@ -166,15 +166,15 @@ pydocstyle src/
 - [ ] GPU-Memory-Monitor: Aktuelle VRAM-Nutzung in MB anzeigen
 
 ## 9. TESTING UND VALIDIERUNG
-- [ ] Testbilder verschiedener Größen: 256x256, 512x512, 1024x1024, 2048x2048
+- [x] Testbilder verschiedener Größen: 256x256, 512x512, 1024x1024, 2048x2048 (tests/test_sizes.py)
 - [ ] Edge-Cases testen: 1x1 Pixel, 10000x10000 Pixel, korrupte Dateien
 - [ ] Verschiedene Formate: JPG, PNG, WebP, BMP, GIF (nur erstes Frame)
 - [ ] Speicher-Monitoring während Batch-Verarbeitung (keine Memory Leaks)
-- [ ] Threading-Tests: Start/Stop/Pause in schneller Folge
-- [ ] GUI-Responsiveness: Bleibt UI während 100+ Bilder Batch reaktiv?
+- [x] Threading-Tests: Start/Stop/Pause in schneller Folge (tests/test_threading.py)
+- [x] GUI-Responsiveness: Bleibt UI während 100+ Bilder Batch reaktiv? (tests/test_responsive.py)
 - [ ] Cross-Platform: Windows 10/11, Ubuntu 22.04, macOS (wenn MPS verfügbar)
 - [ ] Performance-Messung: FPS bzw. Bilder pro Minute dokumentieren
-- [ ] Fehler-Recovery: Kann nach Crash/Exception fortgesetzt werden?
+- [x] Fehler-Recovery: Kann nach Crash/Exception fortgesetzt werden? (tests/test_recovery.py)
 - [ ] Modell-Cache: Werden Modelle korrekt zwischengespeichert?
 
 ## Nachweise
