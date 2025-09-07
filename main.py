@@ -14,15 +14,6 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import Any, cast
 
-try:
-    from tkinterdnd2 import DND_FILES, TkinterDnD
-
-    TKDND_AVAILABLE = True
-except Exception:  # pragma: no cover - optional dependency
-    DND_FILES = None  # type: ignore[assignment]
-    TKDND_AVAILABLE = False
-    TkinterDnD = tk  # type: ignore[assignment]
-
 from src.pipeline import (
     DEFAULT_CTRL_SCALE,
     DEFAULT_GUIDANCE,
@@ -35,6 +26,20 @@ from src.pipeline import (
     prefetch_models,
     process_folder,
 )
+
+try:
+    from tkinterdnd2 import DND_FILES as _dnd_files
+    from tkinterdnd2 import TkinterDnD as _TkinterDnD
+
+    _tkdnd_available = True
+except Exception:  # pragma: no cover - optional dependency
+    _dnd_files = None  # type: ignore[assignment]
+    _TkinterDnD = tk  # type: ignore[assignment]
+    _tkdnd_available = False
+
+DND_FILES = _dnd_files
+TkinterDnD = _TkinterDnD
+TKDND_AVAILABLE = _tkdnd_available
 
 # GUI constants
 WINDOW_TITLE = "Dexi LineArt Max (SD1.5 + ControlNet) – Batch GUI"
@@ -50,7 +55,7 @@ ICON_ERROR = "\u274c"  # ❌
 ICON_PAUSE = "\u23f8"  # ⏸
 
 if TKDND_AVAILABLE:
-    BaseTk = TkinterDnD.Tk  # type: ignore[attr-defined]
+    BaseTk = cast(type[tk.Tk], TkinterDnD.Tk)  # type: ignore[attr-defined]
 else:
     BaseTk = tk.Tk
 
@@ -74,7 +79,10 @@ class CreateToolTip:
         """Display the tooltip window."""
         if self.tipwindow:
             return
-        bbox = cast(Any, self.widget).bbox("insert") or (0, 0, 0, 0)
+        bbox = cast(
+            tuple[int, int, int, int],
+            cast(Any, self.widget).bbox("insert") or (0, 0, 0, 0),
+        )
         x, y = bbox[0], bbox[1]
         x += self.widget.winfo_rootx() + 25
         y += self.widget.winfo_rooty() + 20
@@ -195,8 +203,8 @@ class App(BaseTk):
         ttk.Button(frm_io, text="…", command=self.pick_inp).grid(row=0, column=2)
         _ = CreateToolTip(inp_entry, "Ordner mit Eingabebildern")
         if TKDND_AVAILABLE:
-            inp_entry.drop_target_register(DND_FILES)
-            inp_entry.dnd_bind("<<Drop>>", self._on_drop_inp)
+            cast(Any, inp_entry).drop_target_register(DND_FILES)
+            cast(Any, inp_entry).dnd_bind("<<Drop>>", self._on_drop_inp)
 
         ttk.Label(frm_io, text="Ausgabe:").grid(row=1, column=0, sticky="e")
         out_entry = ttk.Entry(frm_io, textvariable=self.out_var, width=70)
@@ -204,8 +212,8 @@ class App(BaseTk):
         ttk.Button(frm_io, text="…", command=self.pick_out).grid(row=1, column=2)
         _ = CreateToolTip(out_entry, "Ordner für Ausgabebilder")
         if TKDND_AVAILABLE:
-            out_entry.drop_target_register(DND_FILES)
-            out_entry.dnd_bind("<<Drop>>", self._on_drop_out)
+            cast(Any, out_entry).drop_target_register(DND_FILES)
+            cast(Any, out_entry).dnd_bind("<<Drop>>", self._on_drop_out)
 
         frm_quality = ttk.LabelFrame(self, text="Qualität")
         frm_quality.pack(fill="x", padx=pad_x, pady=pad_y)
