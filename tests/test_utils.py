@@ -27,6 +27,14 @@ def test_list_images_sorted(tmp_path) -> None:
     assert [f.name for f in files] == ["a.png", "b.png"]
 
 
+def test_list_images_skips_directories(tmp_path) -> None:
+    """list_images ignores directories even if they have an image extension."""
+    (tmp_path / "a.png").mkdir()
+    (tmp_path / "b.png").touch()
+    files = list_images(tmp_path)
+    assert [f.name for f in files] == ["b.png"]
+
+
 def test_detect_dtype_cpu(monkeypatch) -> None:
     """CPU dtype falls back to float32 without CUDA check."""
     import torch
