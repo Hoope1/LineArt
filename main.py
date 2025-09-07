@@ -14,6 +14,15 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import Any, cast
 
+try:
+    from tkinterdnd2 import DND_FILES, TkinterDnD
+
+    TKDND_AVAILABLE = True
+except Exception:  # pragma: no cover - optional dependency
+    DND_FILES = None  # type: ignore[assignment]
+    TKDND_AVAILABLE = False
+    TkinterDnD = tk  # type: ignore[assignment]
+
 from src.pipeline import (
     DEFAULT_CTRL_SCALE,
     DEFAULT_GUIDANCE,
@@ -34,6 +43,16 @@ LOG_INTERVAL_MS = 100
 PAD = {"padx": 8, "pady": 6}
 
 SETTINGS_FILE = Path.home() / ".dexined_pipeline" / "settings.json"
+
+ICON_DONE = "\u2713"  # ✓
+ICON_WORK = "\u26a1"  # ⚡
+ICON_ERROR = "\u274c"  # ❌
+ICON_PAUSE = "\u23f8"  # ⏸
+
+if TKDND_AVAILABLE:
+    BaseTk = TkinterDnD.Tk  # type: ignore[attr-defined]
+else:
+    BaseTk = tk.Tk
 
 
 class CreateToolTip:
@@ -90,7 +109,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class App(tk.Tk):
+class App(BaseTk):
     """Tkinter GUI for batch line-art generation.
 
     Attributes:
@@ -175,12 +194,18 @@ class App(tk.Tk):
         inp_entry.grid(row=0, column=1, sticky="we")
         ttk.Button(frm_io, text="…", command=self.pick_inp).grid(row=0, column=2)
         _ = CreateToolTip(inp_entry, "Ordner mit Eingabebildern")
+        if TKDND_AVAILABLE:
+            inp_entry.drop_target_register(DND_FILES)
+            inp_entry.dnd_bind("<<Drop>>", self._on_drop_inp)
 
         ttk.Label(frm_io, text="Ausgabe:").grid(row=1, column=0, sticky="e")
         out_entry = ttk.Entry(frm_io, textvariable=self.out_var, width=70)
         out_entry.grid(row=1, column=1, sticky="we")
         ttk.Button(frm_io, text="…", command=self.pick_out).grid(row=1, column=2)
         _ = CreateToolTip(out_entry, "Ordner für Ausgabebilder")
+        if TKDND_AVAILABLE:
+            out_entry.drop_target_register(DND_FILES)
+            out_entry.dnd_bind("<<Drop>>", self._on_drop_out)
 
         frm_quality = ttk.LabelFrame(self, text="Qualität")
         frm_quality.pack(fill="x", padx=pad_x, pady=pad_y)
@@ -370,6 +395,57 @@ class App(tk.Tk):
         if p:
             self.out_var.set(p)
 
+    def _clean_drop_path(self, data: str) -> str:
+        """Normalize drag-and-drop paths from TkDND.
+
+        Args:
+            data: Raw event string.
+
+        Returns:
+            str: Cleaned path without surrounding braces.
+
+        Raises:
+            None
+
+        """
+        return data.strip("{}")
+
+    def _on_drop_inp(self, event: Any) -> None:  # type: ignore[override]
+        """Handle files dropped onto the input entry.
+
+        Args:
+            event: Tkinter event carrying drop data.
+
+        Returns:
+            None
+
+        Raises:
+            None
+
+        """
+        if event.data:
+            path = Path(self._clean_drop_path(event.data))
+            if path.is_dir():
+                self.inp_var.set(str(path))
+
+    def _on_drop_out(self, event: Any) -> None:  # type: ignore[override]
+        """Handle files dropped onto the output entry.
+
+        Args:
+            event: Tkinter event carrying drop data.
+
+        Returns:
+            None
+
+        Raises:
+            None
+
+        """
+        if event.data:
+            path = Path(self._clean_drop_path(event.data))
+            if path.is_dir():
+                self.out_var.set(str(path))
+
     def log(self, s: str) -> None:
         """Enqueue a log message from any thread.
 
@@ -418,6 +494,8 @@ class App(tk.Tk):
                 _, text = msg
                 self.txt.insert("end", f"{text}\n")
                 self.txt.see("end")
+                if text.startswith("FEHLER"):
+                    self.status_var.set(f"{ICON_ERROR} {text}")
             else:
                 _, cur, total, name = msg
                 self.pbar["maximum"] = total
@@ -426,7 +504,8 @@ class App(tk.Tk):
                 spm = cur / elapsed * 60 if elapsed > 0 else 0
                 eta = (total - cur) / (spm / 60) if spm > 0 else 0
                 self.status_var.set(
-                    f"{name} – {cur}/{total} | {spm:.1f} img/min | ETA {eta/60:.1f}m"
+                    f"{ICON_WORK} {name} – {cur}/{total} | "
+                    f"{spm:.1f} img/min | ETA {eta/60:.1f}m"
                 )
         _ = self.after(100, self.process_log_queue)
 
@@ -502,7 +581,7 @@ class App(tk.Tk):
 
         self._save_settings()
         self.start_time = time.time()
-        self.status_var.set("Verarbeitung gestartet")
+        self.status_var.set(f"{ICON_WORK} Verarbeitung gestartet")
 
         self.running = True
         self.stop_event.clear()
@@ -537,7 +616,7 @@ class App(tk.Tk):
         self.running = False
         self.stop_event.set()
         self.log("Stop angefordert (nach aktuellem Bild).")
-        self.status_var.set("Stop angefordert")
+        self.status_var.set(f"{ICON_PAUSE} Stop angefordert")
 
     def done(self) -> None:
         """Mark the current job as finished.
@@ -554,7 +633,7 @@ class App(tk.Tk):
         self.btn_prefetch.config(state="normal")
         self.btn_stop.config(state="disabled")
         self.log("Fertig.")
-        self.status_var.set("Fertig")
+        self.status_var.set(f"{ICON_DONE} Fertig")
 
 
 def main() -> None:
