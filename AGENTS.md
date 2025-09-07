@@ -143,20 +143,20 @@ pydocstyle src/
 
 ## 7. GUI-SPEZIFISCHE VERBESSERUNGEN
 - [x] Preset-Buttons mit Lambda-Functions: Quick (16 steps), Standard (32), Quality (50), Technical (40)
-- [ ] Tooltips via `CreateToolTip` Klasse für jeden Parameter mit Erklärung und Wertebereich
+- [x] Tooltips via `CreateToolTip` Klasse für jeden Parameter mit Erklärung und Wertebereich (Implementiert)
 - [x] ttk.Progressbar mit determinate mode: Maximum = Anzahl Bilder, Update nach jedem Bild
 - [ ] tkinterdnd2 für Drag&Drop oder Fallback auf Browse-Button
-- [ ] Settings in JSON speichern: `~/.dexined_pipeline/settings.json` mit last_input, last_output, parameters
+- [x] Settings in JSON speichern: `~/.dexined_pipeline/settings.json` mit last_input, last_output, parameters (Erledigt)
 - [ ] Status-Icons: ✓ für fertig, ⚡ für processing, ❌ für Fehler, ⏸ für pausiert
 - [ ] Recent-Folders ComboBox: Letzte 10 verwendete Ordner speichern und anzeigen
-- [ ] Parameter-Gruppen in LabelFrames: "Eingabe/Ausgabe", "Qualität", "Performance", "Erweitert"
+- [x] Parameter-Gruppen in LabelFrames: "Eingabe/Ausgabe", "Qualität", "Performance", "Erweitert" (GUI strukturiert)
 - [ ] Tastenkürzel: Ctrl+O (Open), Ctrl+S (Start), Ctrl+Q (Quit), ESC (Stop)
-- [ ] Statusleiste am unteren Rand: Aktuelles Bild, Geschwindigkeit (Bilder/Min), geschätzte Restzeit
+- [x] Statusleiste am unteren Rand: Aktuelles Bild, Geschwindigkeit (Bilder/Min), geschätzte Restzeit (Anzeige aktiv)
 
 ## 8. ZUSÄTZLICHE FEATURES
 - [ ] Thumbnail-Grid mit tkinter.Canvas: 100x100 px Vorschauen der verarbeiteten Bilder
 - [ ] Batch-Size Spinbox: 1-8 Bilder parallel (mit VRAM-Warnung)
-- [ ] Output-Ordner mit Zeitstempel: `output_2024-01-15_14-30-45/`
+- [x] Output-Ordner mit Zeitstempel: `output_2024-01-15_14-30-45/` (Standardpfad)
 - [ ] SHA256-Checksum für Modelle nach Download mit gespeicherten Hashes vergleichen
 - [ ] Pause/Resume via threading.Event: pause_event zusätzlich zu stop_event
 - [ ] Bildstatistiken anzeigen: Anzahl verarbeitet, Durchschnittszeit, Erfolgsrate

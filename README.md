@@ -18,6 +18,9 @@ python main.py
 - DexiNed edge detection
 - SD 1.5 + ControlNet lineart refinement
 - Optional SVG export via VTracer
+- Persistente Einstellungen in `~/.dexined_pipeline/settings.json`
+- Statusleiste mit Dateiname, Fortschritt und ETA
+- Standard-Ausgabeordner mit Zeitstempel `output_YYYY-MM-DD_HH-MM-SS`
 
 ## GUI
 
