@@ -46,6 +46,7 @@ python main.py
 - Strength (0.70) – Stärke des Img2Img-Effekts
 - Seed (42) – Reproduzierbarkeit
 - Max lange Kante (896px) – begrenzt Rechenaufwand
+- Batch-Size (1) – Anzahl Bilder pro Durchlauf; bei VRAM-Engpässen automatische Reduktion
 
 ## Beispiele
 Beispiel-Eingabe und -Ausgabe befinden sich im Ordner `examples/`.
