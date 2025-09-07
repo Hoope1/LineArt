@@ -171,7 +171,9 @@ def list_images(folder: Path) -> list[Path]:
         None
 
     """
-    return sorted(p for p in folder.glob("*") if p.suffix.lower() in IMG_EXTS)
+    return sorted(
+        p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in IMG_EXTS
+    )
 
 
 def resize_img(w: int, h: int, max_long: int = DEFAULT_MAX_LONG) -> tuple[int, int]:
