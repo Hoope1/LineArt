@@ -23,20 +23,27 @@ from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import HTTPError
 
 try:
-    import cv2  # type: ignore[import]
+    import cv2
 except Exception:  # pragma: no cover
-    cv2 = None  # type: ignore[assignment]
+    cv2 = cast(Any, None)
+from typing import TYPE_CHECKING
+
 import numpy as np
+import skimage.morphology as morphology
 from numpy.typing import NDArray
 from PIL import Image
-from skimage import exposure, morphology  # type: ignore[import]
-from skimage.filters import gaussian  # type: ignore[import]
-from skimage.morphology import (  # type: ignore[import]
+from skimage import exposure
+from skimage.filters import gaussian
+from skimage.morphology import (
     binary_closing,
     remove_small_objects,
     skeletonize,
 )
-from skimage.morphology.footprints import square  # type: ignore[import]
+from skimage.morphology.footprints import square
+
+if TYPE_CHECKING:
+    import torch
+    from diffusers import StableDiffusionControlNetImg2ImgPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -84,12 +91,12 @@ def detect_device() -> str:
 
     if torch.cuda.is_available():
         return "cuda"
-    if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():  # type: ignore[attr-defined]
+    if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
         return "mps"
     return "cpu"
 
 
-def detect_dtype(device: str):
+def detect_dtype(device: str) -> torch.dtype:
     """Return preferred torch dtype for *device*.
 
     Args:
@@ -200,7 +207,7 @@ def postprocess_lineart(img: Image.Image) -> Image.Image:
     def _thr(v: int) -> int:
         return 255 if v > 200 else 0
 
-    return img.convert("L").point(_thr, mode="1").convert("L")  # type: ignore[arg-type]
+    return img.convert("L").point(_thr, mode="1").convert("L")
 
 
 def save_svg_vtracer(png_path: Path, svg_path: Path) -> bool:
@@ -254,7 +261,7 @@ def load_dexined(
     device: str | None = None,
     model_id: str = "lllyasviel/Annotators",
     local_dir: Path | None = None,
-):
+) -> Any:
     """Load the DexiNed edge detector on the requested *device*.
 
     Args:
@@ -269,9 +276,9 @@ def load_dexined(
         RuntimeError: If the model cannot be downloaded or loaded locally.
 
     """
-    import controlnet_aux  # type: ignore[import]
+    import controlnet_aux
 
-    DexiNedDetector = cast(Any, controlnet_aux).DexiNedDetector  # type: ignore[reportAttributeAccessIssue]
+    DexiNedDetector = cast(Any, controlnet_aux).DexiNedDetector
 
     dev = detect_device() if device is None else device
     logger.info("loading DexiNed on %s", dev)
@@ -313,7 +320,7 @@ def guided_smooth_if_available(pil_img: Image.Image) -> Image.Image:
     arr = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
     ximgproc = getattr(cv2, "ximgproc", None)
     if ximgproc is not None:
-        arr = ximgproc.guidedFilter(guide=arr, src=arr, radius=4, eps=1e-2)  # type: ignore[call-arg]
+        arr = ximgproc.guidedFilter(guide=arr, src=arr, radius=4, eps=1e-2)
     else:
         arr = cv2.bilateralFilter(arr, d=5, sigmaColor=25, sigmaSpace=25)
     return Image.fromarray(cv2.cvtColor(arr, cv2.COLOR_BGR2RGB))
@@ -413,7 +420,7 @@ def load_sd15_lineart(
     controlnet_id: str | Path = "lllyasviel/control_v11p_sd15_lineart",
     local_model_dir: Path | None = None,
     local_controlnet_dir: Path | None = None,
-):
+) -> StableDiffusionControlNetImg2ImgPipeline:
     """Load SD1.5 + ControlNet Lineart with memory-friendly options.
 
     Args:
@@ -429,7 +436,7 @@ def load_sd15_lineart(
         RuntimeError: If models fail to download or load locally.
 
     """
-    from diffusers import (  # type: ignore[import]
+    from diffusers import (
         ControlNetModel,
         StableDiffusionControlNetImg2ImgPipeline,
     )
