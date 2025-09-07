@@ -1,11 +1,12 @@
 """Ensure dependency declarations are in sync."""
 
+import importlib
 from pathlib import Path
 
 try:
-    import tomllib
+    tomllib = importlib.import_module("tomllib")
 except ModuleNotFoundError:  # pragma: no cover
-    import tomli as tomllib
+    tomllib = importlib.import_module("tomli")
 
 
 def test_requirements_match_pyproject() -> None:

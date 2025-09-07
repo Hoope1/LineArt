@@ -18,6 +18,7 @@ python main.py
 - DexiNed edge detection
 - SD 1.5 + ControlNet lineart refinement
 - Optional SVG export via VTracer
+- Automatische VRAM-Erkennung für GPUs mit <6 GB passt Auflösung und Offloading an
 - Persistente Einstellungen in `~/.dexined_pipeline/settings.json`
 - Statusleiste mit Dateiname, Fortschritt und ETA
 - Standard-Ausgabeordner mit Zeitstempel `output_YYYY-MM-DD_HH-MM-SS`
@@ -49,7 +50,7 @@ python main.py
 - Ctrl-Scale (1.0) – Einfluss der ControlNet-Linien
 - Strength (0.70) – Stärke des Img2Img-Effekts
 - Seed (42) – Reproduzierbarkeit
-- Max lange Kante (896px) – begrenzt Rechenaufwand
+- Max lange Kante (bis 896px, 640px bei <5 GB VRAM) – begrenzt Rechenaufwand
 - Batch-Size (1) – Anzahl Bilder pro Durchlauf; bei VRAM-Engpässen automatische Reduktion
 
 ## Beispiele

@@ -17,7 +17,7 @@ import time
 from collections.abc import Callable
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, TypedDict, cast
+from typing import TYPE_CHECKING, Any, TypedDict, cast
 
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from requests.exceptions import HTTPError
@@ -26,13 +26,11 @@ try:
     import cv2
 except Exception:  # pragma: no cover
     cv2 = cast(Any, None)
-from typing import TYPE_CHECKING
 
 import numpy as np
-import skimage.morphology as morphology
 from numpy.typing import NDArray
 from PIL import Image
-from skimage import exposure
+from skimage import exposure, morphology
 from skimage.filters import gaussian
 from skimage.morphology import (
     binary_closing,
@@ -53,7 +51,10 @@ IMG_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff"}
 # Common constants
 MIN_IMG_SIZE = 64
 MAX_IMG_SIZE = 4096
+LOW_VRAM_MAX_LONG = 640
 DEFAULT_MAX_LONG = 896
+LOW_VRAM_BYTES = 5 * 1024**3  # 5 GiB
+SEQUENTIAL_OFFLOAD_VRAM = 6 * 1024**3  # 6 GiB
 MIN_DISK_SPACE = 100 * 1024 * 1024  # 100 MiB
 DEFAULT_STEPS = 32
 DEFAULT_GUIDANCE = 6.0
@@ -121,6 +122,29 @@ def detect_dtype(device: str) -> torch.dtype:
         return torch.float16
     cpu_bf16 = getattr(torch.cpu, "_is_avx512_bf16_supported", lambda: False)()
     return torch.bfloat16 if cpu_bf16 else torch.float32
+
+
+def detect_max_long() -> int:
+    """Return recommended ``max_long`` based on available VRAM.
+
+    Returns:
+        int: ``LOW_VRAM_MAX_LONG`` if GPU memory is below ``LOW_VRAM_BYTES``
+        else ``DEFAULT_MAX_LONG``.
+
+    Raises:
+        None
+
+    """
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            vram = torch.cuda.get_device_properties(0).total_memory
+            if vram < LOW_VRAM_BYTES:
+                return LOW_VRAM_MAX_LONG
+    except Exception:  # pragma: no cover - best effort
+        pass
+    return DEFAULT_MAX_LONG
 
 
 def list_images(folder: Path) -> list[Path]:
@@ -417,6 +441,38 @@ def rescale_edge(edge: Image.Image, w: int, h: int) -> Image.Image:
 # ---------- SD 1.5 + ControlNet(Lineart) ----------
 
 
+def _configure_pipeline_memory(
+    pipe: StableDiffusionControlNetImg2ImgPipeline, device: str
+) -> None:
+    """Enable memory optimisations for the diffusion pipeline.
+
+    Args:
+        pipe: Diffusion pipeline instance.
+        device: Execution device string.
+
+    Returns:
+        None
+
+    Raises:
+        None
+
+    """
+    try:
+        pipe.enable_xformers_memory_efficient_attention()
+    except Exception as exc:  # pragma: no cover - optional accel
+        logger.warning("xFormers konnte nicht aktiviert werden: %s", exc)
+    pipe.enable_attention_slicing(slice_size="auto")
+    pipe.enable_vae_slicing()
+    pipe.enable_vae_tiling()
+    if device == "cuda":
+        import torch
+
+        vram = torch.cuda.get_device_properties(0).total_memory
+        pipe.enable_model_cpu_offload()
+        if vram < SEQUENTIAL_OFFLOAD_VRAM:
+            pipe.enable_sequential_cpu_offload()
+
+
 @lru_cache(maxsize=1)
 def load_sd15_lineart(
     model_id: str | Path = "stable-diffusion-v1-5/stable-diffusion-v1-5",
@@ -492,15 +548,7 @@ def load_sd15_lineart(
             )
             raise RuntimeError(msg) from exc
     pipe.to(device)
-    try:
-        pipe.enable_xformers_memory_efficient_attention()
-    except Exception as exc:  # pragma: no cover - optional accel
-        logger.warning("xFormers konnte nicht aktiviert werden: %s", exc)
-    pipe.enable_attention_slicing(slice_size="auto")
-    pipe.enable_vae_slicing()
-    pipe.enable_vae_tiling()
-    pipe.enable_model_cpu_offload()
-    pipe.enable_sequential_cpu_offload()
+    _configure_pipeline_memory(pipe, device)
     return pipe
 
 
@@ -538,6 +586,8 @@ def sd_refine(
     pipe = load_sd15_lineart()
     device = pipe._execution_device
     W, H = base_rgb.size
+    if max_long == DEFAULT_MAX_LONG:
+        max_long = detect_max_long()
     w, h = resize_img(W, H, max_long=max_long)
     base = base_rgb.resize((w, h), Image.Resampling.LANCZOS).convert("RGB")
     ctrl = ctrl_L.resize((w, h), Image.Resampling.NEAREST).convert("RGB")
@@ -723,8 +773,7 @@ def process_folder(  # noqa: C901
                     continue
                 log(f"FEHLER: {exc}")
                 idx += len(batch)
-        else:
-            log("\nALLE BILDER ERLEDIGT.")
+        log("\nALLE BILDER ERLEDIGT.")
         done_cb()
     finally:
         cleanup_models()
