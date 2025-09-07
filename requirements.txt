@@ -11,3 +11,4 @@ numpy
 xformers
 vtracer
 tkinterdnd2
+requests
