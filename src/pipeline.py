@@ -30,6 +30,7 @@ import numpy as np
 from numpy.typing import NDArray
 from PIL import Image
 from skimage import exposure, morphology  # type: ignore[import]
+from skimage.filters import gaussian  # type: ignore[import]
 from skimage.morphology import (  # type: ignore[import]
     binary_closing,
     remove_small_objects,
@@ -235,8 +236,14 @@ def save_svg_vtracer(png_path: Path, svg_path: Path) -> bool:
             capture_output=True,
         )
         return True
-    except Exception:
-        return False
+    except FileNotFoundError as exc:
+        logger.error("vtracer CLI nicht gefunden: %s", exc)
+    except subprocess.CalledProcessError as exc:  # pragma: no cover - external tool
+        err = exc.stderr.decode().strip() if exc.stderr else exc
+        logger.error("vtracer fehlgeschlagen: %s", err)
+    except Exception as exc:  # pragma: no cover - unexpected
+        logger.error("Unerwarteter SVG-Exportfehler: %s", exc)
+    return False
 
 
 # ---------- DexiNed (controlnet-aux) ----------
@@ -328,13 +335,15 @@ def get_dexined(
         Image.Image: Edge map in ``L`` mode.
 
     Raises:
-        RuntimeError: If OpenCV is not available.
+        None
 
     """
     import torch
 
     if cv2 is None:
-        raise RuntimeError("cv2 not available")
+        logger.warning(
+            "OpenCV nicht verfügbar – verwende skimage.gaussian als Fallback"
+        )
     det = load_dexined()
     img = ensure_rgb(pil_img)
     if pre_smooth:
@@ -361,7 +370,10 @@ def get_dexined(
     edge = exposure.rescale_intensity(
         edge, in_range=lo_hi
     )  # pyright: ignore[reportArgumentType]
-    edge = cv2.GaussianBlur(edge, (0, 0), 0.7)
+    if cv2 is not None:
+        edge = cv2.GaussianBlur(edge, (0, 0), 0.7)
+    else:
+        edge = gaussian(edge, sigma=0.7, preserve_range=True)
 
     thr = np.clip(np.percentile(edge, 50), 0.25, 0.65)
     mask = edge <= thr
@@ -472,8 +484,8 @@ def load_sd15_lineart(
     pipe.to(device)
     try:
         pipe.enable_xformers_memory_efficient_attention()
-    except Exception:
-        pass
+    except Exception as exc:  # pragma: no cover - optional accel
+        logger.warning("xFormers konnte nicht aktiviert werden: %s", exc)
     pipe.enable_attention_slicing(slice_size="auto")
     pipe.enable_vae_slicing()
     pipe.enable_vae_tiling()
@@ -620,9 +632,12 @@ def process_one(
         result_paths += [ref_path, bw_path]
 
         if cfg["save_svg"]:
-            svg_ok = save_svg_vtracer(bw_path, out_dir / f"{path.stem}_refined_bw.svg")
+            svg_target = out_dir / f"{path.stem}_refined_bw.svg"
+            svg_ok = save_svg_vtracer(bw_path, svg_target)
             if svg_ok:
-                result_paths.append(out_dir / f"{path.stem}_refined_bw.svg")
+                result_paths.append(svg_target)
+            else:
+                log("SVG-Export fehlgeschlagen – ist 'vtracer' installiert?")
 
     dt = time.perf_counter() - t0
     log(
