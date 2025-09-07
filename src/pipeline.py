@@ -78,8 +78,12 @@ class Config(TypedDict):
     batch_size: int
 
 
+@lru_cache(maxsize=1)
 def detect_device() -> str:
     """Return the best available torch device string.
+
+    The result is cached because hardware availability will not change during
+    a single program run.
 
     Returns:
         str: ``"cuda"``, ``"mps"`` or ``"cpu"`` depending on availability.
@@ -97,8 +101,11 @@ def detect_device() -> str:
     return "cpu"
 
 
+@lru_cache(maxsize=3)
 def detect_dtype(device: str) -> torch.dtype:
     """Return preferred torch dtype for *device*.
+
+    The result is cached per device type to avoid repeated feature detection.
 
     Args:
         device: Torch device string.
@@ -124,8 +131,12 @@ def detect_dtype(device: str) -> torch.dtype:
     return torch.bfloat16 if cpu_bf16 else torch.float32
 
 
+@lru_cache(maxsize=1)
 def detect_max_long() -> int:
     """Return recommended ``max_long`` based on available VRAM.
+
+    The calculation is cached because the amount of GPU memory is constant
+    during runtime.
 
     Returns:
         int: ``LOW_VRAM_MAX_LONG`` if GPU memory is below ``LOW_VRAM_BYTES``
