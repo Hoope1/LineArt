@@ -324,21 +324,34 @@ def load_dexined(
 ) -> Any:
     """Load the DexiNed edge detector on the requested *device*.
 
+    Falls back to :class:`~controlnet_aux.lineart.LineartDetector` if the
+    installed ``controlnet_aux`` package lacks ``DexiNedDetector``.
+
     Args:
         device: Optional torch device string.
         model_id: Hugging Face model identifier.
         local_dir: Optional local model directory used as fallback.
 
     Returns:
-        DexiNedDetector: Loaded detector instance.
+        DexiNedDetector | LineartDetector: Loaded detector instance.
 
     Raises:
         RuntimeError: If the model cannot be downloaded or loaded locally.
 
     """
-    import controlnet_aux
+    try:
+        from controlnet_aux import DexiNedDetector
 
-    DexiNedDetector = cast(Any, controlnet_aux).DexiNedDetector
+        Detector = DexiNedDetector
+    except ImportError:  # pragma: no cover - optional dependency
+        from controlnet_aux.lineart import LineartDetector as Detector
+
+        DexiNedDetector = None  # type: ignore[assignment]
+
+        logger.warning(
+            "DexiNedDetector not found in controlnet_aux; "
+            "falling back to LineartDetector",
+        )
 
     dev = detect_device() if device is None else device
     logger.info("loading DexiNed on %s", dev)
@@ -348,14 +361,20 @@ def load_dexined(
         candidates.append(local_dir)
     candidates.extend(find_model_dirs("Annotators"))
     for cand in dict.fromkeys(candidates):
-        if cand.exists():
+        if not cand.exists():
+            continue
+        if DexiNedDetector is not None:
             try:
                 return DexiNedDetector.from_pretrained(cand).to(dev)
             except Exception:  # pragma: no cover - best effort
-                continue
+                pass
+        try:
+            return Detector.from_pretrained(cand).to(dev)
+        except Exception:  # pragma: no cover - best effort
+            continue
 
     try:
-        return DexiNedDetector.from_pretrained(model_id).to(dev)
+        return Detector.from_pretrained(model_id).to(dev)
     except (RequestsConnectionError, HTTPError, OSError) as exc:
         msg = (
             "Modell-Download fehlgeschlagen: lllyasviel/Annotators. "
