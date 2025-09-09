@@ -1,75 +1,52 @@
-Nach dem nach dem Programmieren, ändern, korrigieren, ergänzen des Codes sollst du eine saubere, reproduzierbare Qualitäts-Pipeline fahren – schnell zuerst, tiefgründig danach:
-Also immer vor dem Abschluss!
-1. Schnelle Auto-Korrektur & Formatierung
+Nach dem Programmieren, Ändern oder Ergänzen des Codes muss eine reproduzierbare Qualitäts-Pipeline laufen – schnell zuerst, gründlich danach. Immer vor dem Abschluss!
 
-Ruff (lint + quick-fix + Imports):
+1. **Formatierung & Linting**
+
+Ruff übernimmt Formatierung, Import-Sortierung und schnelle Fixes:
+```
+ruff format .
 ruff check . --fix
-Fängt Syntax-/Style-Fehler (E/F/W …), sortiert Importe (Regelgruppe I), kann auch Modernisierungen (UP/pyupgrade-Regeln) und Docstring-Checks (D) übernehmen – extrem schnell. 
+```
 
-Black (finale Formatierung):
-black .
-Erzwingt einheitlichen Stil, keine Diskussionen über Formatdetails. (Black liest optional deine pyproject.toml-Settings.) 
+2. **Statische Typprüfung**
 
-Optional isort: nur wenn du nicht willst, dass Ruff die Importe sortiert: isort . (Ruff kann das bereits.) 
+BasedPyright analysiert den Code ohne Node-Abhängigkeit:
+```
+basedpyright --outputjson
+```
 
+3. **Tiefenanalyse der Codequalität**
 
+```
+vulture src tests
+refurb src tests
+```
 
-2. Statische Typprüfung (zwei Perspektiven, mehr Treffer)
+4. **Abhängigkeits-Hygiene**
 
-basedpyright (strenger, sehr schnell): basedpyright
-Vorteil: reines PyPI-Paket, keine Node-Abhängigkeit. 
+```
+deptry .
+```
 
-mypy (zweite Meinung, anderes Regelset): mypy
-Beide Checker finden unterschiedliche Klassen von Typ-Fehlern; Konfiguration bequem in pyproject.toml unter [tool.mypy]. 
-
-
-
-3. Tiefenanalyse der Codequalität
-
-Pylint: pylint src/
-Deckt Naming-Konventionen, Code-Smells, Refactoring-Hinweise ab; findet anderes als Ruff. Pylint kann pyproject.toml lesen. 
-
-Vulture: vulture src/
-Sucht toten/ungenutzten Code (Funktionen, Variablen, Klassen). Konfigurierbar via [tool.vulture] in pyproject.toml. 
-
-
-
-4. Abhängigkeits-Hygiene
-
-Deptry: deptry .
-Findet fehlende, ungenutzte, transitive und falsch genutzte Stdlib-Im-porte; versteht PEP 621-Metadaten aus pyproject.toml ([project], [project.optional-dependencies]). Konfigurierbar via [tool.deptry]. 
-
-
-
-5. Dokumentationsdisziplin
-
-pydocstyle: pydocstyle src/
-Prüft PEP 257-konforme Docstrings. (Alternativ kannst du die D-Regeln über Ruff laufen lassen und pydocstyle weglassen.) 
-
-
-
+Bei jeder Codeänderung muss das vollständige Prüfverfahren mit Ruff, BasedPyright, Vulture, Refurb und Deptry durchgeführt werden.
 
 ---
 
 Minimal sinnvolle Reihenfolge (CLI)
 
-# 1) Schnell fixen & formatieren
+# 1) Format & Lint
+ruff format .
 ruff check . --fix
-black .
 
-# 2) Typchecks
-basedpyright
-mypy
+# 2) Typprüfung
+basedpyright --outputjson
 
 # 3) Tiefenanalyse
-pylint src/
-vulture src/
+vulture src tests
+refurb src tests
 
 # 4) Dependencies prüfen
 deptry .
-
-# 5) (optional, falls nicht via Ruff-D-Regeln)
-pydocstyle src/
 # DexiNed → SD 1.5 + ControlNet Pipeline - Implementierungsstatus
 
 ## 1. ARCHITEKTUR-REFACTORING
@@ -122,7 +99,7 @@ pydocstyle src/
 - [x] Type Hints für Rückgabewerte, auch bei None: `-> None` ✅
 - [x] Google-Style Docstrings mit Args, Returns, Raises Sections für jede Funktion
 - [x] Klassen-Docstrings mit Attributes-Section für alle Instance-Variablen
-- [x] Black-Formatierung: Zeilen max 88 Zeichen, konsistente Quotes ✅
+- [x] Ruff-Formatierung: Zeilen max 88 Zeichen, konsistente Quotes ✅
 - [x] Ruff-Linting: Import-Sortierung, unused imports entfernen ✅
 - [x] Pathlib überall: keine String-Pfade, immer `Path` objects
 - [x] Konstanten in UPPER_CASE am Dateianfang definieren
@@ -187,4 +164,4 @@ pydocstyle src/
 | AGENT-601 | README Struktur & Troubleshooting | ✅ | 2be2d20 |
 | AGENT-402 | Modell-Download-Fehler behandeln | ✅ | 53bc7a6, tests/test_errors.py |
 | AGENT-403 | OOM-Handling im SD-Refine | ✅ | 53bc7a6, tests/test_errors.py |
-| AGENT-501 | Typisierung & Black-Format | ✅ | 53bc7a6 |
+| AGENT-501 | Typisierung & Ruff-Format | ✅ | 53bc7a6 |

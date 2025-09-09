@@ -14,6 +14,50 @@ pip install -r requirements.txt
 python main.py
 ```
 
+## Entwicklung
+
+Ruff ersetzt Flake8, Black, isort und Pylint; BasedPyright löst mypy ab. Vulture, Refurb und Deptry prüfen zusätzlich auf toten Code, Modernisierungspotenzial und saubere Abhängigkeiten.
+
+### Setup (Windows 11, Python ≥ 3.10)
+
+```
+py -3.10 -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt -r requirements-dev.txt
+```
+
+### Prüfbefehle
+
+```
+ruff format .
+ruff check . --fix
+basedpyright --outputjson
+vulture src tests
+refurb src tests
+deptry .
+```
+
+Alle Schritte lassen sich gebündelt ausführen:
+
+```
+make full-check
+```
+
+### Beispielausgabe
+
+```
+$ make full-check
+ruff format .
+ruff check . --fix
+basedpyright --outputjson
+vulture src tests
+  tests/test_errors.py:18: unused variable 'args' (100% confidence)
+refurb src tests
+  src/pipeline.py:142:57 [FURB111]: Replace `lambda: False` with `bool`
+deptry .
+  Success! No dependency issues found.
+```
+
 ## Features
 - DexiNed edge detection
 - SD 1.5 + ControlNet lineart refinement

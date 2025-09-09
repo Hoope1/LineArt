@@ -8,7 +8,6 @@ lightweight.
 from __future__ import annotations
 
 # pyright: reportArgumentType=false, reportAttributeAccessIssue=false
-# pylint: disable=import-error,no-name-in-module,too-many-locals,too-many-arguments,too-many-positional-arguments,import-outside-toplevel,broad-exception-caught,invalid-name,no-member,line-too-long,protected-access
 import logging
 import shutil
 import subprocess
@@ -446,9 +445,7 @@ def get_dexined(
         float(np.percentile(edge, 5)),
         float(np.percentile(edge, 99)),
     )
-    edge = exposure.rescale_intensity(
-        edge, in_range=lo_hi
-    )  # pyright: ignore[reportArgumentType]
+    edge = exposure.rescale_intensity(edge, in_range=lo_hi)  # pyright: ignore[reportArgumentType]
     if cv2 is not None:
         edge = cv2.GaussianBlur(edge, (0, 0), 0.7)
     else:
@@ -698,7 +695,7 @@ def process_one(
         with Image.open(path) as img:
             img.verify()
         src = ensure_rgb(Image.open(path))
-    except Exception as exc:  # pylint: disable=broad-except
+    except Exception as exc:
         log(f"FEHLER: {path.name} – {exc}")
         return
 
@@ -731,7 +728,7 @@ def process_one(
                 seed=cfg["seed"],
                 max_long=cfg["max_long"],
             )
-        except Exception as exc:  # pylint: disable=broad-except
+        except Exception as exc:
             log(f"FEHLER bei SD-Refinement: {exc}")
             return
         ref_path = out_dir / f"{path.stem}_refined.png"

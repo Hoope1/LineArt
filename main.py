@@ -513,7 +513,7 @@ class App(BaseTk):
                 eta = (total - cur) / (spm / 60) if spm > 0 else 0
                 self.status_var.set(
                     f"{ICON_WORK} {name} – {cur}/{total} | "
-                    f"{spm:.1f} img/min | ETA {eta/60:.1f}m"
+                    f"{spm:.1f} img/min | ETA {eta / 60:.1f}m"
                 )
         _ = self.after(100, self.process_log_queue)
 
@@ -532,7 +532,7 @@ class App(BaseTk):
             try:
                 prefetch_models(self.log)
                 messagebox.showinfo("Fertig", "Alle Modelle sind lokal verfügbar.")
-            except Exception as e:  # pylint: disable=broad-except
+            except Exception as e:
                 messagebox.showerror("Fehler beim Herunterladen", str(e))
 
         threading.Thread(target=job, daemon=True).start()
@@ -561,7 +561,7 @@ class App(BaseTk):
         if not out.exists():
             try:
                 out.mkdir(parents=True, exist_ok=True)
-            except Exception as e:  # pylint: disable=broad-except
+            except Exception as e:
                 messagebox.showerror(
                     "Fehler", f"Ausgabeordner kann nicht erstellt werden:\n{e}"
                 )
@@ -604,7 +604,7 @@ class App(BaseTk):
                 process_folder(
                     inp, out, cfg, self.log, self.done, self.stop_event, self.progress
                 )
-            except Exception as e:  # pylint: disable=broad-except
+            except Exception as e:
                 self.log(f"FEHLER: {e}")
                 self.done()
 
