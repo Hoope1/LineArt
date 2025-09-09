@@ -78,6 +78,24 @@ class Config(TypedDict):
     batch_size: int
 
 
+def find_model_dirs(name: str, root: Path | None = None) -> list[Path]:
+    """Return directories named *name* within *root* and its subfolders.
+
+    Args:
+        name: Directory name to search for.
+        root: Optional root directory. Defaults to the project root.
+
+    Returns:
+        list[Path]: All matching directories.
+
+    Raises:
+        None
+
+    """
+    base = Path(__file__).resolve().parent.parent if root is None else root
+    return [p for p in base.rglob(name) if p.is_dir()]
+
+
 @lru_cache(maxsize=1)
 def detect_device() -> str:
     """Return the best available torch device string.
@@ -338,12 +356,17 @@ def load_dexined(
         if local_dir is not None:
             candidates.append(local_dir)
         candidates.append(Path("models") / "Annotators")
+        candidates.extend(find_model_dirs("Annotators"))
+        seen: set[Path] = set()
         for cand in candidates:
-            if cand.exists():
-                try:
-                    return Detector.from_pretrained(cand).to(dev)
-                except Exception:  # pragma: no cover - best effort
-                    continue
+            cand = cand.resolve()
+            if cand in seen or not cand.exists():
+                continue
+            seen.add(cand)
+            try:
+                return Detector.from_pretrained(cand).to(dev)
+            except Exception:  # pragma: no cover - best effort
+                continue
         msg = (
             "Modell-Download fehlgeschlagen: lllyasviel/Annotators. "
             "Bitte Netzwerk prüfen oder lokalen Pfad nutzen."
@@ -541,9 +564,13 @@ def load_sd15_lineart(
             ]
             if p is not None
         ]
+        cn_candidates.extend(find_model_dirs("control_v11p_sd15_lineart"))
         sd_candidates = [
             p for p in [local_model_dir, Path("models") / "sd15"] if p is not None
         ]
+        sd_candidates.extend(find_model_dirs("sd15"))
+        cn_candidates = list(dict.fromkeys([p.resolve() for p in cn_candidates]))
+        sd_candidates = list(dict.fromkeys([p.resolve() for p in sd_candidates]))
         pipe = None
         for cn in cn_candidates:
             for sd in sd_candidates:
