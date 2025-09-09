@@ -1,0 +1,6 @@
+ruff
+basedpyright
+vulture
+deptry
+refurb
+pytest

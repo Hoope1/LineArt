@@ -1,0 +1,61 @@
+name: lint
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          pip install -r requirements.txt -r requirements-dev.txt
+      - name: Ruff format
+        run: |
+          set -o pipefail
+          . .venv/bin/activate
+          ruff format --check . | tee ruff-format.log
+      - name: Ruff lint
+        run: |
+          set -o pipefail
+          . .venv/bin/activate
+          ruff check . | tee ruff-lint.log
+      - name: BasedPyright
+        run: |
+          set -o pipefail
+          . .venv/bin/activate
+          basedpyright --outputjson | tee pyright-report.json
+      - name: Vulture
+        run: |
+          set -o pipefail
+          . .venv/bin/activate
+          vulture src tests | tee vulture-report.txt
+      - name: Refurb
+        run: |
+          set -o pipefail
+          . .venv/bin/activate
+          refurb src tests | tee refurb-report.txt
+      - name: Deptry
+        run: |
+          set -o pipefail
+          . .venv/bin/activate
+          deptry . | tee deptry-report.txt
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-reports
+          path: |
+            ruff-format.log
+            ruff-lint.log
+            pyright-report.json
+            vulture-report.txt
+            refurb-report.txt
+            deptry-report.txt
