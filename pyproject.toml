@@ -5,15 +5,12 @@ requires-python = ">=3.8,<3.12"
 dependencies = [
     "torch",
     "diffusers",
-    "transformers",
-    "accelerate",
     "controlnet-aux",
     "pillow",
     "opencv-python",
     "scikit-image",
     "numpy",
     "requests",
-    "xformers",
 ]
 
 [project.optional-dependencies]
@@ -38,6 +35,7 @@ convention = "google"
 python_version = "3.11"
 strict = true
 ignore_missing_imports = true
+exclude = ["tests/"]
 
 [tool.pylint.'MAIN']
 # Beispiel: Naming/Gewichtung etc.
@@ -47,4 +45,9 @@ min_confidence = 80
 exclude = ["tests/*"]
 
 [tool.deptry]
-# Beispiel: Regeln/Ignores hier steuern
+per_rule_ignores = { "DEP002" = ["vtracer"] }
+
+[tool.deptry.package_module_name_map]
+"opencv-python" = ["cv2"]
+"pillow" = ["PIL"]
+"scikit-image" = ["skimage"]

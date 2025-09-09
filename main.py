@@ -28,18 +28,20 @@ from src.pipeline import (
 )
 
 try:
-    from tkinterdnd2 import DND_FILES as _dnd_files
-    from tkinterdnd2 import TkinterDnD as _TkinterDnD
+    from tkinterdnd2 import DND_FILES as dnd_files
+    from tkinterdnd2 import TkinterDnD as tkdnd
 
-    _tkdnd_available = True
+    tkdnd_available = True
 except Exception:  # pragma: no cover - optional dependency
-    _dnd_files = None  # type: ignore[assignment]
-    _TkinterDnD = tk  # type: ignore[assignment]
-    _tkdnd_available = False
+    dnd_files = None
+    tkdnd = tk
+    tkdnd_available = False
 
-DND_FILES = _dnd_files
-TkinterDnD = _TkinterDnD
-TKDND_AVAILABLE = _tkdnd_available
+DND_FILES = cast(str | None, dnd_files)
+TkinterDnD = cast(Any, tkdnd)
+TKDND_AVAILABLE = tkdnd_available
+
+BaseTk = cast(type[tk.Tk], TkinterDnD.Tk if TKDND_AVAILABLE else tk.Tk)
 
 # GUI constants
 WINDOW_TITLE = "Dexi LineArt Max (SD1.5 + ControlNet) – Batch GUI"
@@ -53,11 +55,6 @@ ICON_DONE = "\u2713"  # ✓
 ICON_WORK = "\u26a1"  # ⚡
 ICON_ERROR = "\u274c"  # ❌
 ICON_PAUSE = "\u23f8"  # ⏸
-
-if TKDND_AVAILABLE:
-    BaseTk = cast(type[tk.Tk], TkinterDnD.Tk)  # type: ignore[attr-defined]
-else:
-    BaseTk = tk.Tk
 
 
 class CreateToolTip:
@@ -75,7 +72,7 @@ class CreateToolTip:
         _ = widget.bind("<Enter>", self.show_tip)
         _ = widget.bind("<Leave>", self.hide_tip)
 
-    def show_tip(self, _event: tk.Event) -> None:  # type: ignore[override]
+    def show_tip(self, _event: tk.Event) -> None:
         """Display the tooltip window."""
         if self.tipwindow:
             return
@@ -96,11 +93,11 @@ class CreateToolTip:
             background="#ffffe0",
             relief="solid",
             borderwidth=1,
-            font=("tahoma", 8, "normal"),  # type: ignore[arg-type]
+            font=("tahoma", 8, "normal"),
         )
         label.pack(ipadx=1)
 
-    def hide_tip(self, _event: tk.Event) -> None:  # type: ignore[override]
+    def hide_tip(self, _event: tk.Event) -> None:
         """Hide the tooltip window."""
         if self.tipwindow:
             self.tipwindow.destroy()
@@ -117,7 +114,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class App(BaseTk):
+class App(BaseTk):  # type: ignore[misc, valid-type]
     """Tkinter GUI for batch line-art generation.
 
     Attributes:
@@ -418,7 +415,7 @@ class App(BaseTk):
         """
         return data.strip("{}")
 
-    def _on_drop_inp(self, event: Any) -> None:  # type: ignore[override]
+    def _on_drop_inp(self, event: Any) -> None:
         """Handle files dropped onto the input entry.
 
         Args:
@@ -436,7 +433,7 @@ class App(BaseTk):
             if path.is_dir():
                 self.inp_var.set(str(path))
 
-    def _on_drop_out(self, event: Any) -> None:  # type: ignore[override]
+    def _on_drop_out(self, event: Any) -> None:
         """Handle files dropped onto the output entry.
 
         Args:

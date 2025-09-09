@@ -1,0 +1,7 @@
+{
+  "reportMissingImports": "warning",
+  "reportMissingModuleSource": "warning",
+  "reportMissingTypeStubs": "warning",
+  "venvPath": ".",
+  "venv": ".venv"
+}

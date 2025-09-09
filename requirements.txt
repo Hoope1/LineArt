@@ -1,14 +1,11 @@
 # Runtime dependencies
 torch
 diffusers
-transformers
-accelerate
 controlnet-aux
 pillow
 opencv-python
 scikit-image
 numpy
-xformers
 vtracer
 tkinterdnd2
 requests

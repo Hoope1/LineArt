@@ -15,19 +15,12 @@ import subprocess
 import threading
 import time
 from collections.abc import Callable
-from functools import lru_cache
+from functools import cache, lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypedDict, cast
 
-from requests.exceptions import ConnectionError as RequestsConnectionError
-from requests.exceptions import HTTPError
-
-try:
-    import cv2
-except Exception:  # pragma: no cover
-    cv2 = cast(Any, None)
-
 import numpy as np
+import requests
 from numpy.typing import NDArray
 from PIL import Image
 from skimage import exposure, morphology
@@ -38,6 +31,14 @@ from skimage.morphology import (
     skeletonize,
 )
 from skimage.morphology.footprints import square
+
+RequestsConnectionError = requests.ConnectionError
+HTTPError = requests.HTTPError
+
+try:
+    import cv2
+except Exception:  # pragma: no cover
+    cv2 = cast(Any, None)
 
 if TYPE_CHECKING:
     import torch
@@ -62,6 +63,25 @@ DEFAULT_CTRL_SCALE = 1.0
 DEFAULT_STRENGTH = 0.70
 DEFAULT_SEED = 42
 DEFAULT_BATCH_SIZE = 1
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+
+
+@cache
+def find_model_dirs(name: str) -> list[Path]:
+    """Return directories named *name* under the project root.
+
+    Args:
+        name: Directory name to search for.
+
+    Returns:
+        list[Path]: Sorted list of matching directories.
+
+    Raises:
+        None
+
+    """
+    return sorted({p for p in ROOT_DIR.rglob(name) if p.is_dir()})
 
 
 class Config(TypedDict):
@@ -322,19 +342,21 @@ def load_dexined(
 
     dev = detect_device() if device is None else device
     logger.info("loading DexiNed on %s", dev)
+
+    candidates: list[Path] = []
+    if local_dir is not None:
+        candidates.append(local_dir)
+    candidates.extend(find_model_dirs("Annotators"))
+    for cand in dict.fromkeys(candidates):
+        if cand.exists():
+            try:
+                return DexiNedDetector.from_pretrained(cand).to(dev)
+            except Exception:  # pragma: no cover - best effort
+                continue
+
     try:
         return DexiNedDetector.from_pretrained(model_id).to(dev)
     except (RequestsConnectionError, HTTPError, OSError) as exc:
-        candidates: list[Path] = []
-        if local_dir is not None:
-            candidates.append(local_dir)
-        candidates.append(Path("models") / "Annotators")
-        for cand in candidates:
-            if cand.exists():
-                try:
-                    return DexiNedDetector.from_pretrained(cand).to(dev)
-                except Exception:  # pragma: no cover - best effort
-                    continue
         msg = (
             "Modell-Download fehlgeschlagen: lllyasviel/Annotators. "
             "Bitte Netzwerk prüfen oder lokalen Pfad nutzen."
@@ -515,51 +537,51 @@ def load_sd15_lineart(
 
     device = detect_device()
     dtype = detect_dtype(device)
-    try:
-        controlnet = ControlNetModel.from_pretrained(controlnet_id, torch_dtype=dtype)
-        pipe = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(
-            model_id,
-            controlnet=controlnet,
-            safety_checker=None,
-            torch_dtype=dtype,
-        )
-    except (RequestsConnectionError, HTTPError, OSError) as exc:
-        cn_candidates = [
-            p
-            for p in [
-                local_controlnet_dir,
-                Path("models") / "control_v11p_sd15_lineart",
-            ]
-            if p is not None
-        ]
-        sd_candidates = [
-            p for p in [local_model_dir, Path("models") / "sd15"] if p is not None
-        ]
-        pipe = None
-        for cn in cn_candidates:
-            for sd in sd_candidates:
-                if cn.exists() and sd.exists():
-                    try:
-                        controlnet = ControlNetModel.from_pretrained(
-                            cn, torch_dtype=dtype
-                        )
-                        pipe = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(
-                            sd,
-                            controlnet=controlnet,
-                            safety_checker=None,
-                            torch_dtype=dtype,
-                        )
-                        break
-                    except Exception:  # pragma: no cover - best effort
-                        continue
-            if pipe is not None:
-                break
-        if pipe is None:
+
+    cn_candidates: list[Path] = []
+    if local_controlnet_dir is not None:
+        cn_candidates.append(local_controlnet_dir)
+    cn_candidates.extend(find_model_dirs("control_v11p_sd15_lineart"))
+    sd_candidates: list[Path] = []
+    if local_model_dir is not None:
+        sd_candidates.append(local_model_dir)
+    sd_candidates.extend(find_model_dirs("sd15"))
+    pipe: StableDiffusionControlNetImg2ImgPipeline | None = None
+    for cn in dict.fromkeys(cn_candidates):
+        for sd in dict.fromkeys(sd_candidates):
+            if cn.exists() and sd.exists():
+                try:
+                    controlnet = ControlNetModel.from_pretrained(cn, torch_dtype=dtype)
+                    pipe = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(
+                        sd,
+                        controlnet=controlnet,
+                        safety_checker=None,
+                        torch_dtype=dtype,
+                    )
+                    break
+                except Exception:  # pragma: no cover - best effort
+                    continue
+        if pipe is not None:
+            break
+
+    if pipe is None:
+        try:
+            controlnet = ControlNetModel.from_pretrained(
+                controlnet_id, torch_dtype=dtype
+            )
+            pipe = StableDiffusionControlNetImg2ImgPipeline.from_pretrained(
+                model_id,
+                controlnet=controlnet,
+                safety_checker=None,
+                torch_dtype=dtype,
+            )
+        except (RequestsConnectionError, HTTPError, OSError) as exc:
             msg = (
                 "Modell-Download fehlgeschlagen: ControlNet oder SD1.5. "
                 "Bitte Netzwerk prüfen oder lokalen Pfad nutzen."
             )
             raise RuntimeError(msg) from exc
+
     pipe.to(device)
     _configure_pipeline_memory(pipe, device)
     return pipe
