@@ -1,0 +1,5 @@
+ruff
+basedpyright
+vulture
+deptry
+refurb
