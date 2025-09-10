@@ -12,3 +12,4 @@ xformers
 vtracer
 tkinterdnd2
 requests
+huggingface-hub

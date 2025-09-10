@@ -13,6 +13,7 @@ dependencies = [
     "scikit-image",
     "numpy",
     "requests",
+    "huggingface-hub",
     "xformers",
 ]
 
