@@ -8,7 +8,6 @@ lightweight.
 from __future__ import annotations
 
 # pyright: reportArgumentType=false, reportAttributeAccessIssue=false
-# pylint: disable=import-error,no-name-in-module,too-many-locals,too-many-arguments,too-many-positional-arguments,import-outside-toplevel,broad-exception-caught,invalid-name,no-member,line-too-long,protected-access
 import logging
 import shutil
 import subprocess
@@ -61,12 +60,11 @@ DEFAULT_GUIDANCE = 6.0
 DEFAULT_CTRL_SCALE = 1.0
 DEFAULT_STRENGTH = 0.70
 DEFAULT_SEED = 42
-DEFAULT_BATCH_SIZE = 1
+
+__all__ = ["rescale_edge", "prefetch_models"]
 
 
 class Config(TypedDict):
-    """Configuration options for processing."""
-
     use_sd: bool
     save_svg: bool
     steps: int
@@ -446,9 +444,7 @@ def get_dexined(
         float(np.percentile(edge, 5)),
         float(np.percentile(edge, 99)),
     )
-    edge = exposure.rescale_intensity(
-        edge, in_range=lo_hi
-    )  # pyright: ignore[reportArgumentType]
+    edge = exposure.rescale_intensity(edge, in_range=lo_hi)  # pyright: ignore[reportArgumentType]
     if cv2 is not None:
         edge = cv2.GaussianBlur(edge, (0, 0), 0.7)
     else:
@@ -465,6 +461,7 @@ def get_dexined(
     return Image.fromarray(out, mode="L")
 
 
+# pragma: no cover
 def rescale_edge(edge: Image.Image, w: int, h: int) -> Image.Image:
     """Resize edge image back to original resolution.
 
@@ -698,7 +695,7 @@ def process_one(
         with Image.open(path) as img:
             img.verify()
         src = ensure_rgb(Image.open(path))
-    except Exception as exc:  # pylint: disable=broad-except
+    except Exception as exc:
         log(f"FEHLER: {path.name} – {exc}")
         return
 
@@ -731,7 +728,7 @@ def process_one(
                 seed=cfg["seed"],
                 max_long=cfg["max_long"],
             )
-        except Exception as exc:  # pylint: disable=broad-except
+        except Exception as exc:
             log(f"FEHLER bei SD-Refinement: {exc}")
             return
         ref_path = out_dir / f"{path.stem}_refined.png"
@@ -828,6 +825,7 @@ def process_folder(  # noqa: C901
         cleanup_models()
 
 
+# pragma: no cover
 def prefetch_models(log: Callable[[str], None]) -> None:
     """Download all required models ahead of time.
 

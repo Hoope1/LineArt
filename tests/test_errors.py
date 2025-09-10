@@ -15,7 +15,7 @@ class DummyPipe:  # noqa: D101
 
     _execution_device = torch.device("cpu")
 
-    def __call__(self, *args, **kwargs):  # noqa: D401
+    def __call__(self, *_args, **_kwargs):  # noqa: D401
         """Raise OOM to simulate GPU exhaustion."""
         raise torch.cuda.OutOfMemoryError("OOM")
 
@@ -24,7 +24,7 @@ class DummyControlNet:  # noqa: D101
     """Mock ControlNet that fails on load."""
 
     @classmethod
-    def from_pretrained(cls, *args, **kwargs):  # noqa: D401
+    def from_pretrained(_cls, *_args, **_kwargs):  # noqa: D401
         """Raise error to simulate download failure."""
         raise ConnectionError("net")
 
@@ -33,7 +33,7 @@ class DummySDPipeline:  # noqa: D101
     """Mock SD pipeline that fails on load."""
 
     @classmethod
-    def from_pretrained(cls, *args, **kwargs):  # noqa: D401
+    def from_pretrained(_cls, *_args, **_kwargs):  # noqa: D401
         """Raise error to simulate download failure."""
         raise ConnectionError("net")
 

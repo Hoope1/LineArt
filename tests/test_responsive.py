@@ -13,7 +13,7 @@ def test_progress_moves(tmp_path, monkeypatch) -> None:
     for i in range(100):
         Image.new("RGB", (32, 32)).save(tmp_path / f"im{i}.png")
 
-    monkeypatch.setattr(pipeline, "process_one", lambda p, o, c, _log: None)
+    monkeypatch.setattr(pipeline, "process_one", lambda _p, _o, _c, _log: None)
     monkeypatch.setattr(pipeline, "cleanup_models", lambda: None)
 
     cfg: pipeline.Config = {
