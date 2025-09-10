@@ -825,6 +825,35 @@ def process_folder(  # noqa: C901
         cleanup_models()
 
 
+# ---------- Model downloads ----------
+
+
+def _download_repo(repo_id: str, target: Path) -> None:
+    """Download *repo_id* into *target* using ``huggingface_hub``.
+
+    Args:
+        repo_id: Hugging Face repository identifier.
+        target: Destination directory for the repository snapshot.
+
+    Returns:
+        None
+
+    Raises:
+        RuntimeError: If the download fails.
+
+    """
+    from huggingface_hub import snapshot_download
+
+    try:
+        snapshot_download(
+            repo_id,
+            local_dir=target,
+            local_dir_use_symlinks=False,
+        )
+    except Exception as exc:  # pragma: no cover - network errors
+        raise RuntimeError(f"Download fehlgeschlagen: {repo_id}") from exc
+
+
 # pragma: no cover
 def prefetch_models(log: Callable[[str], None]) -> None:
     """Download all required models ahead of time.
@@ -840,8 +869,23 @@ def prefetch_models(log: Callable[[str], None]) -> None:
 
     """
     log("Lade Modelle vom Hub … (einmalig)")
-    _ = load_dexined(device="cpu")
-    _ = load_sd15_lineart()
+    _download_repo(
+        "stable-diffusion-v1-5/stable-diffusion-v1-5",
+        Path("models") / "sd15",
+    )
+    _download_repo(
+        "lllyasviel/Annotators",
+        Path("models") / "Annotators",
+    )
+    _download_repo(
+        "lllyasviel/control_v11p_sd15_lineart",
+        Path("models") / "control_v11p_sd15_lineart",
+    )
+    _ = load_dexined(device="cpu", local_dir=Path("models") / "Annotators")
+    _ = load_sd15_lineart(
+        local_model_dir=Path("models") / "sd15",
+        local_controlnet_dir=Path("models") / "control_v11p_sd15_lineart",
+    )
     log("Modelle vorhanden.\n")
 
 
