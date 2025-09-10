@@ -1,0 +1,7 @@
+.venv/
+.ruff_cache/
+.pyright/
+pyright_report.json
+vulture_report.txt
+refurb_report.txt
+deptry_report.json

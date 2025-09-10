@@ -1,0 +1,54 @@
+name: lint-advisory
+on: [push, pull_request]
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install dev tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff basedpyright vulture deptry refurb
+      - name: Ruff format (check)
+        run: ruff format --check . || true
+        continue-on-error: true
+      - name: Ruff lint
+        run: ruff check . --show-fixes || true
+        continue-on-error: true
+      - name: BasedPyright
+        run: basedpyright --outputjson > pyright_report.json || true
+        continue-on-error: true
+      - name: Vulture
+        run: |
+          if [ -d src ]; then vulture src tests --ignore-names 'use_sd,save_svg' > vulture_report.txt || true; else vulture . tests --ignore-names 'use_sd,save_svg' > vulture_report.txt || true; fi
+        continue-on-error: true
+      - name: Refurb
+        run: |
+          if [ -d src ]; then refurb src tests > refurb_report.txt || true; else refurb . tests > refurb_report.txt || true; fi
+        continue-on-error: true
+      - name: Deptry
+        run: deptry . --json-output deptry_report.json || true
+        continue-on-error: true
+      - name: QA Summary
+        run: |
+          echo "## QA-Berichte (advisory)" >> $GITHUB_STEP_SUMMARY
+          echo "- Ruff format check: nicht-blockierend" >> $GITHUB_STEP_SUMMARY
+          echo "- Ruff lint: nicht-blockierend" >> $GITHUB_STEP_SUMMARY
+          echo "- BasedPyright: pyright_report.json" >> $GITHUB_STEP_SUMMARY
+          echo "- Vulture: vulture_report.txt" >> $GITHUB_STEP_SUMMARY
+          echo "- Refurb: refurb_report.txt" >> $GITHUB_STEP_SUMMARY
+          echo "- Deptry: deptry_report.json" >> $GITHUB_STEP_SUMMARY
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-reports
+          path: |
+            pyright_report.json
+            vulture_report.txt
+            refurb_report.txt
+            deptry_report.json

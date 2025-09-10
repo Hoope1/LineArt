@@ -14,6 +14,61 @@ pip install -r requirements.txt
 python main.py
 ```
 
+## Entwicklung
+
+Ruff ersetzt Flake8, Black, isort und Pylint; BasedPyright löst mypy ab. Vulture, Refurb und Deptry prüfen zusätzlich auf toten Code, Modernisierungspotenzial und saubere Abhängigkeiten.
+
+### Setup (Windows 11, Python ≥ 3.10)
+
+```
+py -3.10 -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements.txt -r requirements-dev.txt
+```
+
+`requirements-dev.txt` enthält Ruff, BasedPyright, Vulture, Refurb, Deptry sowie Pytest für die Tests.
+
+### Prüfbefehle
+
+```
+ruff format .
+ruff check . --fix
+basedpyright --outputjson
+vulture src tests --ignore-names 'use_sd,save_svg'
+refurb src tests
+deptry .
+```
+
+Alle Schritte lassen sich gebündelt ausführen:
+
+```
+make full-check
+```
+
+### Beispielausgabe
+
+```
+$ make full-check
+ruff format .
+ruff check . --fix
+basedpyright --outputjson
+vulture src tests --ignore-names 'use_sd,save_svg'
+refurb src tests
+deptry .
+  Success! No dependency issues found.
+```
+
+### Lokale Hooks
+
+```bash
+pre-commit install
+pre-commit install --hook-type pre-push
+```
+
+### CI (report-only)
+
+Der GitHub-Workflow `lint-advisory` führt die gleichen Checks aus, liefert aber nur Berichte als Artefakte und in der Job-Zusammenfassung. Branch-Protection-Regeln dürfen diesen Workflow nicht als "required" markieren; die Durchsetzung passiert lokal über die oben genannten Hooks bzw. `make full-check`.
+
 ## Features
 - DexiNed edge detection
 - SD 1.5 + ControlNet lineart refinement
