@@ -52,7 +52,7 @@ def test_load_sd15_lineart_download_error(monkeypatch) -> None:
 
 def test_sd_refine_oom(monkeypatch) -> None:
     """sd_refine raises friendly OOM errors."""
-    monkeypatch.setattr(pipeline, "load_sd15_lineart", lambda: DummyPipe())
+    monkeypatch.setattr(pipeline, "load_sd15_lineart", DummyPipe)
     img = Image.new("RGB", (64, 64))
     with pytest.raises(RuntimeError):
         pipeline.sd_refine(img, img)
