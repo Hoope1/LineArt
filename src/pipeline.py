@@ -14,6 +14,7 @@ import subprocess
 import threading
 import time
 from collections.abc import Callable
+from contextlib import AbstractContextManager, nullcontext, suppress
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypedDict, cast
@@ -138,12 +139,12 @@ def detect_dtype(device: str) -> torch.dtype:
     if device == "cuda":
         return (
             torch.bfloat16
-            if getattr(torch.cuda, "is_bf16_supported", lambda: False)()
+            if getattr(torch.cuda, "is_bf16_supported", bool)()
             else torch.float16
         )
     if device == "mps":
         return torch.float16
-    cpu_bf16 = getattr(torch.cpu, "_is_avx512_bf16_supported", lambda: False)()
+    cpu_bf16 = getattr(torch.cpu, "_is_avx512_bf16_supported", bool)()
     return torch.bfloat16 if cpu_bf16 else torch.float32
 
 
@@ -162,15 +163,13 @@ def detect_max_long() -> int:
         None
 
     """
-    try:
+    with suppress(Exception):  # pragma: no cover - best effort
         import torch
 
         if torch.cuda.is_available():
             vram = torch.cuda.get_device_properties(0).total_memory
             if vram < LOW_VRAM_BYTES:
                 return LOW_VRAM_MAX_LONG
-    except Exception:  # pragma: no cover - best effort
-        pass
     return DEFAULT_MAX_LONG
 
 
@@ -231,19 +230,21 @@ def ensure_dir(p: Path) -> Path:
 
 
 def ensure_rgb(img: Image.Image) -> Image.Image:
-    """Convert *img* to RGB mode if necessary.
+    """Convert *img* to RGB mode if necessary and detach from the file handle.
 
     Args:
         img: Input image.
 
     Returns:
-        Image.Image: RGB image.
+        Image.Image: RGB image that no longer keeps the original file open.
 
     Raises:
         None
 
     """
-    return img.convert("RGB") if img.mode != "RGB" else img
+    if img.mode != "RGB":
+        return img.convert("RGB")
+    return img.copy()
 
 
 def postprocess_lineart(img: Image.Image) -> Image.Image:
@@ -555,15 +556,15 @@ def load_sd15_lineart(
     except (RequestsConnectionError, HTTPError, OSError) as exc:
         cn_candidates = [
             p
-            for p in [
+            for p in (
                 local_controlnet_dir,
                 Path("models") / "control_v11p_sd15_lineart",
-            ]
+            )
             if p is not None
         ]
         cn_candidates.extend(find_model_dirs("control_v11p_sd15_lineart"))
         sd_candidates = [
-            p for p in [local_model_dir, Path("models") / "sd15"] if p is not None
+            p for p in (local_model_dir, Path("models") / "sd15") if p is not None
         ]
         sd_candidates.extend(find_model_dirs("sd15"))
         cn_candidates = list(dict.fromkeys([p.resolve() for p in cn_candidates]))
@@ -596,6 +597,20 @@ def load_sd15_lineart(
     pipe.to(device)
     _configure_pipeline_memory(pipe, device)
     return pipe
+
+
+def _autocast_context(
+    device: torch.device, dtype: torch.dtype
+) -> AbstractContextManager[None]:
+    """Return a safe autocast context for the given *device* and *dtype*."""
+    import torch
+
+    device_type = device.type
+    if device_type == "cuda":
+        return torch.autocast(device_type, dtype=dtype)
+    if device_type == "cpu" and dtype in {torch.float16, torch.bfloat16}:
+        return torch.autocast(device_type, dtype=dtype)
+    return nullcontext()
 
 
 def sd_refine(
@@ -631,6 +646,7 @@ def sd_refine(
 
     pipe = load_sd15_lineart()
     device = pipe._execution_device
+    device_type = device.type
     W, H = base_rgb.size
     if max_long == DEFAULT_MAX_LONG:
         max_long = detect_max_long()
@@ -638,11 +654,15 @@ def sd_refine(
     base = base_rgb.resize((w, h), Image.Resampling.LANCZOS).convert("RGB")
     ctrl = ctrl_L.resize((w, h), Image.Resampling.NEAREST).convert("RGB")
 
-    gen = torch.Generator(device=device).manual_seed(seed)
+    gen_device = (
+        f"{device_type}:{device.index}" if device.index is not None else device_type
+    )
+    gen = torch.Generator(device=gen_device).manual_seed(seed)
+    autocast_ctx = _autocast_context(device, detect_dtype(device_type))
     try:
         with (
             torch.inference_mode(),
-            torch.autocast(device.type, dtype=detect_dtype(device.type)),
+            autocast_ctx,
         ):
             result: Any = pipe(
                 prompt=(
@@ -694,7 +714,8 @@ def process_one(
     try:
         with Image.open(path) as img:
             img.verify()
-        src = ensure_rgb(Image.open(path))
+        with Image.open(path) as img:
+            src = ensure_rgb(img)
     except Exception as exc:
         log(f"FEHLER: {path.name} – {exc}")
         return
