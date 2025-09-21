@@ -8,17 +8,17 @@ from PIL import Image
 
 import src.pipeline as pipeline
 
-CFG: pipeline.Config = {
-    "use_sd": False,
-    "save_svg": False,
-    "steps": 1,
-    "guidance": 1.0,
-    "ctrl": 1.0,
-    "strength": 0.5,
-    "seed": 0,
-    "max_long": 2048,
-    "batch_size": 1,
-}
+CFG = pipeline.PipelineConfig(
+    use_sd=False,
+    save_svg=False,
+    steps=1,
+    guidance=1.0,
+    ctrl=1.0,
+    strength=0.5,
+    seed=0,
+    max_long=2048,
+    batch_size=1,
+)
 
 
 def _run(path: Path, tmp_path: Path) -> list[str]:

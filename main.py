@@ -10,6 +10,7 @@ import queue
 import threading
 import time
 import tkinter as tk
+from dataclasses import asdict
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import Any, cast
@@ -21,7 +22,7 @@ from src.pipeline import (
     DEFAULT_SEED,
     DEFAULT_STEPS,
     DEFAULT_STRENGTH,
-    Config,
+    PipelineConfig,
     detect_device,
     prefetch_models,
     process_folder,
@@ -111,9 +112,7 @@ LogMessage = tuple[str, str]
 ProgressMessage = tuple[str, int, int, str]
 QueueItem = LogMessage | ProgressMessage
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -230,18 +229,14 @@ class App(BaseTk):
         ctrl_entry = ttk.Entry(frm_quality, textvariable=self.ctrl, width=6)
         ctrl_entry.grid(row=0, column=5, sticky="w")
         _ = CreateToolTip(ctrl_entry, "ControlNet Einfluss (0-2, Standard 1.0)")
-        ttk.Label(frm_quality, text="Strength (img2img)").grid(
-            row=1, column=0, sticky="e"
-        )
+        ttk.Label(frm_quality, text="Strength (img2img)").grid(row=1, column=0, sticky="e")
         strength_entry = ttk.Entry(frm_quality, textvariable=self.strength, width=6)
         strength_entry.grid(row=1, column=1, sticky="w")
         _ = CreateToolTip(strength_entry, "Img2Img Stärke (0-1, Standard 0.7)")
 
         frm_performance = ttk.LabelFrame(self, text="Performance")
         frm_performance.pack(fill="x", padx=pad_x, pady=pad_y)
-        ttk.Label(frm_performance, text="Max lange Kante (px)").grid(
-            row=0, column=0, sticky="e"
-        )
+        ttk.Label(frm_performance, text="Max lange Kante (px)").grid(row=0, column=0, sticky="e")
         max_entry = ttk.Entry(frm_performance, textvariable=self.max_long, width=6)
         max_entry.grid(row=0, column=1, sticky="w")
         _ = CreateToolTip(max_entry, "Maximale Bildkante (64-4096, Standard 896)")
@@ -321,9 +316,7 @@ class App(BaseTk):
         self.txt: tk.Text = tk.Text(frm_log, height=20)
         self.txt.pack(fill="both", expand=True)
 
-        ttk.Label(self, textvariable=self.status_var, anchor="w").pack(
-            fill="x", side="bottom"
-        )
+        ttk.Label(self, textvariable=self.status_var, anchor="w").pack(fill="x", side="bottom")
 
     def _load_settings(self) -> None:
         """Load persisted GUI settings from disk."""
@@ -348,19 +341,20 @@ class App(BaseTk):
     def _save_settings(self) -> None:
         """Persist current GUI settings to disk."""
         SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        params_cfg = PipelineConfig(
+            use_sd=bool(self.use_sd.get()),
+            save_svg=bool(self.save_svg.get()),
+            steps=int(self.steps.get()),
+            guidance=float(self.guidance.get()),
+            ctrl=float(self.ctrl.get()),
+            strength=float(self.strength.get()),
+            seed=int(self.seed.get()),
+            max_long=int(self.max_long.get()),
+        )
         data = {
             "last_input": self.inp_var.get(),
             "last_output": self.out_var.get(),
-            "params": {
-                "use_sd": bool(self.use_sd.get()),
-                "save_svg": bool(self.save_svg.get()),
-                "steps": int(self.steps.get()),
-                "guidance": float(self.guidance.get()),
-                "ctrl": float(self.ctrl.get()),
-                "strength": float(self.strength.get()),
-                "seed": int(self.seed.get()),
-                "max_long": int(self.max_long.get()),
-            },
+            "params": asdict(params_cfg),
         }
         SETTINGS_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
@@ -512,8 +506,7 @@ class App(BaseTk):
                 spm = cur / elapsed * 60 if elapsed > 0 else 0
                 eta = (total - cur) / (spm / 60) if spm > 0 else 0
                 self.status_var.set(
-                    f"{ICON_WORK} {name} – {cur}/{total} | "
-                    f"{spm:.1f} img/min | ETA {eta / 60:.1f}m"
+                    f"{ICON_WORK} {name} – {cur}/{total} | {spm:.1f} img/min | ETA {eta / 60:.1f}m"
                 )
         _ = self.after(100, self.process_log_queue)
 
@@ -562,30 +555,26 @@ class App(BaseTk):
             try:
                 out.mkdir(parents=True, exist_ok=True)
             except Exception as e:
-                messagebox.showerror(
-                    "Fehler", f"Ausgabeordner kann nicht erstellt werden:\n{e}"
-                )
+                messagebox.showerror("Fehler", f"Ausgabeordner kann nicht erstellt werden:\n{e}")
                 return
         if not os.access(out, os.W_OK):
             messagebox.showerror("Fehler", "Keine Schreibrechte im Ausgabeordner")
             return
 
         if detect_device() != "cuda":
-            messagebox.showwarning(
-                "Warnung", "CUDA nicht verfügbar – CPU wird langsam sein."
-            )
+            messagebox.showwarning("Warnung", "CUDA nicht verfügbar – CPU wird langsam sein.")
 
-        cfg: Config = {
-            "use_sd": self.use_sd.get(),
-            "save_svg": self.save_svg.get(),
-            "steps": int(self.steps.get()),
-            "guidance": float(self.guidance.get()),
-            "ctrl": float(self.ctrl.get()),
-            "strength": float(self.strength.get()),
-            "seed": int(self.seed.get()),
-            "max_long": int(self.max_long.get()),
-            "batch_size": 1,
-        }
+        cfg = PipelineConfig(
+            use_sd=bool(self.use_sd.get()),
+            save_svg=bool(self.save_svg.get()),
+            steps=int(self.steps.get()),
+            guidance=float(self.guidance.get()),
+            ctrl=float(self.ctrl.get()),
+            strength=float(self.strength.get()),
+            seed=int(self.seed.get()),
+            max_long=int(self.max_long.get()),
+            batch_size=1,
+        )
 
         self._save_settings()
         self.start_time = time.time()
@@ -601,9 +590,7 @@ class App(BaseTk):
 
         def job() -> None:
             try:
-                process_folder(
-                    inp, out, cfg, self.log, self.done, self.stop_event, self.progress
-                )
+                process_folder(inp, out, cfg, self.log, self.done, self.stop_event, self.progress)
             except Exception as e:
                 self.log(f"FEHLER: {e}")
                 self.done()

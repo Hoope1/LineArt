@@ -19,7 +19,11 @@ def test_prefetch_models_download(monkeypatch) -> None:
 
     monkeypatch.setattr(huggingface_hub, "snapshot_download", fake_snapshot)
     monkeypatch.setattr(pipeline, "load_dexined", lambda **_k: None)
+    monkeypatch.setattr("src.lineart.models.dexined.load_dexined", lambda **_k: None)
+    monkeypatch.setattr("src.lineart.prefetch.load_dexined", lambda **_k: None)
     monkeypatch.setattr(pipeline, "load_sd15_lineart", lambda **_k: None)
+    monkeypatch.setattr("src.lineart.models.diffusion.load_sd15_lineart", lambda **_k: None)
+    monkeypatch.setattr("src.lineart.prefetch.load_sd15_lineart", lambda **_k: None)
 
     pipeline.prefetch_models(lambda _msg: None)
 

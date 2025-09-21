@@ -16,21 +16,22 @@ def test_process_folder_creates_output(tmp_path, monkeypatch) -> None:
     out = tmp_path / "out"
 
     monkeypatch.setattr(pipeline, "process_one", lambda *_a, **_k: None)
+    monkeypatch.setattr("src.lineart.processing.process_one", lambda *_a, **_k: None)
     monkeypatch.setattr(pipeline, "cleanup_models", lambda: None)
     disk = SimpleNamespace(free=pipeline.MIN_DISK_SPACE + 1)
     monkeypatch.setattr(pipeline.shutil, "disk_usage", lambda _: disk)
 
-    cfg: pipeline.Config = {
-        "use_sd": False,
-        "save_svg": False,
-        "steps": 1,
-        "guidance": 1.0,
-        "ctrl": 1.0,
-        "strength": 0.5,
-        "seed": 0,
-        "max_long": 64,
-        "batch_size": 1,
-    }
+    cfg = pipeline.PipelineConfig(
+        use_sd=False,
+        save_svg=False,
+        steps=1,
+        guidance=1.0,
+        ctrl=1.0,
+        strength=0.5,
+        seed=0,
+        max_long=64,
+        batch_size=1,
+    )
 
     pipeline.process_folder(inp, out, cfg, lambda _: None, lambda: None)
     assert out.exists()
