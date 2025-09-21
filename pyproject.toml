@@ -22,7 +22,7 @@ gui = ["tkinterdnd2"]
 svg = ["vtracer"]
 
 [tool.ruff]
-line-length = 88
+line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
@@ -34,4 +34,4 @@ convention = "google"
 [tool.deptry]
 
 [tool.deptry.per_rule_ignores]
-DEP002 = ["transformers", "accelerate", "xformers", "vtracer"]
+DEP002 = ["transformers", "accelerate", "xformers", "vtracer", "controlnet-aux"]

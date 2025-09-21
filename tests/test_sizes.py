@@ -14,24 +14,25 @@ def test_common_sizes(tmp_path, monkeypatch) -> None:
         Image.new("RGB", (size, size)).save(tmp_path / f"im{idx}.png")
 
     # Fake processor writes out placeholder files
-    def fake_process_one(path: Path, out: Path, cfg: pipeline.Config, log):
+    def fake_process_one(path: Path, out: Path, cfg: pipeline.PipelineConfig, log):
         out.mkdir(parents=True, exist_ok=True)
         Image.open(path).save(out / path.name)
 
     monkeypatch.setattr(pipeline, "process_one", fake_process_one)
+    monkeypatch.setattr("src.lineart.processing.process_one", fake_process_one)
     monkeypatch.setattr(pipeline, "cleanup_models", lambda: None)
 
-    cfg: pipeline.Config = {
-        "use_sd": False,
-        "save_svg": False,
-        "steps": 1,
-        "guidance": 1.0,
-        "ctrl": 1.0,
-        "strength": 0.5,
-        "seed": 0,
-        "max_long": 2048,
-        "batch_size": 1,
-    }
+    cfg = pipeline.PipelineConfig(
+        use_sd=False,
+        save_svg=False,
+        steps=1,
+        guidance=1.0,
+        ctrl=1.0,
+        strength=0.5,
+        seed=0,
+        max_long=2048,
+        batch_size=1,
+    )
 
     out_dir = tmp_path / "out"
     out_dir.mkdir()

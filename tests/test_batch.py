@@ -14,30 +14,31 @@ def test_batch_fallback(tmp_path, monkeypatch) -> None:
 
     calls = {"count": 0}
 
-    def fake_process_one(path: Path, out_dir: Path, cfg: pipeline.Config, log):
+    def fake_process_one(path: Path, out_dir: Path, cfg: pipeline.PipelineConfig, log):
         if calls["count"] == 0:
             calls["count"] += 1
             raise RuntimeError("GPU out of memory")
         calls["count"] += 1
 
     monkeypatch.setattr(pipeline, "process_one", fake_process_one)
+    monkeypatch.setattr("src.lineart.processing.process_one", fake_process_one)
 
     logs: list[str] = []
 
     def log(msg: str) -> None:
         logs.append(msg)
 
-    cfg: pipeline.Config = {
-        "use_sd": False,
-        "save_svg": False,
-        "steps": 1,
-        "guidance": 1.0,
-        "ctrl": 1.0,
-        "strength": 0.5,
-        "seed": 0,
-        "max_long": 64,
-        "batch_size": 2,
-    }
+    cfg = pipeline.PipelineConfig(
+        use_sd=False,
+        save_svg=False,
+        steps=1,
+        guidance=1.0,
+        ctrl=1.0,
+        strength=0.5,
+        seed=0,
+        max_long=64,
+        batch_size=2,
+    )
     pipeline.process_folder(tmp_path, tmp_path, cfg, log, lambda: None)
 
     assert any("reduziere Batch-Size" in m for m in logs)
