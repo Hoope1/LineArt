@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -11,6 +12,9 @@ logger = logging.getLogger(__name__)
 
 def save_svg_vtracer(png_path: Path, svg_path: Path) -> bool:
     """Convert *png_path* to SVG via ``vtracer`` and save to *svg_path*."""
+    if shutil.which("vtracer") is None:
+        logger.error("vtracer CLI not found in PATH")
+        return False
     try:
         subprocess.run(
             [
@@ -31,10 +35,10 @@ def save_svg_vtracer(png_path: Path, svg_path: Path) -> bool:
         )
         return True
     except FileNotFoundError as exc:
-        logger.error("vtracer CLI nicht gefunden: %s", exc)
+        logger.error("Unable to launch vtracer CLI: %s", exc)
     except subprocess.CalledProcessError as exc:  # pragma: no cover - external tool
         err = exc.stderr.decode().strip() if exc.stderr else exc
-        logger.error("vtracer fehlgeschlagen: %s", err)
+        logger.error("vtracer command failed: %s", err)
     except Exception as exc:  # pragma: no cover - unexpected
-        logger.error("Unerwarteter SVG-Exportfehler: %s", exc)
+        logger.error("Unexpected SVG export error: %s", exc)
     return False

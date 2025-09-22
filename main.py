@@ -15,7 +15,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import Any, cast
 
-from src.pipeline import (
+from lineart.pipeline import (
     DEFAULT_CTRL_SCALE,
     DEFAULT_GUIDANCE,
     DEFAULT_MAX_LONG,
@@ -112,7 +112,6 @@ LogMessage = tuple[str, str]
 ProgressMessage = tuple[str, int, int, str]
 QueueItem = LogMessage | ProgressMessage
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -641,6 +640,11 @@ def main() -> None:
         None
 
     """
+    if not logging.getLogger().hasHandlers():
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s - %(levelname)s - %(message)s",
+        )
     app = App()
     app.mainloop()
 

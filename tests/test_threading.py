@@ -6,7 +6,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from src import pipeline
+from lineart import pipeline as pipeline
 
 
 def test_start_stop_multiple(tmp_path, monkeypatch) -> None:
@@ -22,10 +22,10 @@ def test_start_stop_multiple(tmp_path, monkeypatch) -> None:
         cleanup_calls["n"] += 1
 
     monkeypatch.setattr(pipeline, "process_one", fake_process_one)
-    monkeypatch.setattr("src.lineart.processing.process_one", fake_process_one)
+    monkeypatch.setattr("lineart.processing.process_one", fake_process_one)
     monkeypatch.setattr(pipeline, "cleanup_models", fake_cleanup)
-    monkeypatch.setattr("src.lineart.prefetch.cleanup_models", fake_cleanup)
-    monkeypatch.setattr("src.lineart.processing.cleanup_models", fake_cleanup)
+    monkeypatch.setattr("lineart.prefetch.cleanup_models", fake_cleanup)
+    monkeypatch.setattr("lineart.processing.cleanup_models", fake_cleanup)
 
     cfg = pipeline.PipelineConfig(
         use_sd=False,

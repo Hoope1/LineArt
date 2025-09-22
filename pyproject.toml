@@ -1,7 +1,7 @@
 [project]
 name = "lineart"
 version = "0.0.0"
-requires-python = ">=3.8,<3.12"
+requires-python = ">=3.9,<3.13"
 dependencies = [
     "torch",
     "diffusers",
@@ -14,16 +14,25 @@ dependencies = [
     "numpy",
     "requests",
     "huggingface-hub",
-    "xformers",
 ]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project.optional-dependencies]
 gui = ["tkinterdnd2"]
 svg = ["vtracer"]
+gpu = [
+    "xformers; platform_system == 'Linux' and platform_machine == 'x86_64'",
+]
+
+[project.scripts]
+lineart-gui = "lineart.main:main"
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py39"
 
 [tool.ruff.lint]
 select = ["E","F","W","I","UP","D","B","C90"]
@@ -34,4 +43,5 @@ convention = "google"
 [tool.deptry]
 
 [tool.deptry.per_rule_ignores]
+DEP001 = ["lineart"]
 DEP002 = ["transformers", "accelerate", "xformers", "vtracer", "controlnet-aux"]

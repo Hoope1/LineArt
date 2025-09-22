@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from . import pipeline as pipeline
 from .config import PipelineConfig
 from .constants import (
     DEFAULT_CTRL_SCALE,
@@ -68,4 +69,5 @@ __all__ = [
     "process_folder",
     "process_one",
     "save_svg_vtracer",
+    "pipeline",
 ]

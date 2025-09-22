@@ -6,7 +6,7 @@ from pathlib import Path
 
 from PIL import Image
 
-import src.pipeline as pipeline
+import lineart.pipeline as pipeline
 
 CFG = pipeline.PipelineConfig(
     use_sd=False,

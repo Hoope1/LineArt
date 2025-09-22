@@ -30,11 +30,12 @@ def detect_dtype(device: str) -> torch.dtype:
     import torch
 
     if device == "cuda":
-        return torch.bfloat16 if getattr(torch.cuda, "is_bf16_supported", bool)() else torch.float16
+        is_bf16_supported = getattr(torch.cuda, "is_bf16_supported", lambda: False)
+        return torch.bfloat16 if is_bf16_supported() else torch.float16
     if device == "mps":
         return torch.float16
-    cpu_bf16 = getattr(torch.cpu, "_is_avx512_bf16_supported", bool)()
-    return torch.bfloat16 if cpu_bf16 else torch.float32
+    cpu_bf16_supported = getattr(torch.cpu, "_is_avx512_bf16_supported", lambda: False)
+    return torch.bfloat16 if cpu_bf16_supported() else torch.float32
 
 
 @lru_cache(maxsize=1)

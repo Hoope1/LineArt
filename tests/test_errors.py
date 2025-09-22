@@ -7,7 +7,7 @@ import pytest
 import torch
 from PIL import Image
 
-import src.pipeline as pipeline
+import lineart.pipeline as pipeline
 
 
 class DummyPipe:  # noqa: D101
@@ -54,8 +54,8 @@ def test_sd_refine_oom(monkeypatch) -> None:
     """sd_refine raises friendly OOM errors."""
     monkeypatch.setattr(pipeline, "load_sd15_lineart", DummyPipe)
     monkeypatch.setattr(
-        "src.lineart.models.diffusion.load_sd15_lineart",
-        lambda *args, **kwargs: DummyPipe(),
+        "lineart.models.diffusion.load_sd15_lineart",
+        lambda *_args, **_kwargs: DummyPipe(),
     )
     img = Image.new("RGB", (64, 64))
     with pytest.raises(RuntimeError):
