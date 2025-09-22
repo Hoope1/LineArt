@@ -4,8 +4,8 @@ diffusers
 transformers
 accelerate
 controlnet-aux
-pillow
-opencv-python
+pillow>=9.1
+opencv-python-headless
 scikit-image
 numpy
 requests

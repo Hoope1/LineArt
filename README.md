@@ -1,12 +1,12 @@
 # Dexi LineArt Max
 
-*Benötigt Python >=3.8,<3.12*
+*Benötigt Python >=3.10,<3.13*
 
 ## Installation
 ```
 python -m venv .venv
 . .venv/bin/activate
-pip install -r requirements.txt
+pip install .[test]
 ```
 
 ## Quickstart
@@ -23,10 +23,10 @@ Ruff ersetzt Flake8, Black, isort und Pylint; BasedPyright löst mypy ab. Vultur
 ```
 py -3.10 -m venv .venv
 .\.venv\Scripts\activate
-pip install -r requirements.txt -r requirements-dev.txt
+pip install .[dev,test]
 ```
 
-`requirements-dev.txt` enthält Ruff, BasedPyright, Vulture, Refurb, Deptry sowie Pytest für die Tests.
+Die Entwicklungs-Extras installieren Ruff, BasedPyright, Vulture, Refurb und Deptry; das Test-Extra bringt Pytest sowie Tomli für Python 3.10 mit.
 
 ### Prüfbefehle
 

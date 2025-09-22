@@ -1,15 +1,15 @@
 [project]
 name = "lineart"
 version = "0.0.0"
-requires-python = ">=3.9,<3.13"
+requires-python = ">=3.10,<3.13"
 dependencies = [
     "torch",
     "diffusers",
     "transformers",
     "accelerate",
     "controlnet-aux",
-    "pillow",
-    "opencv-python",
+    "pillow>=9.1",
+    "opencv-python-headless",
     "scikit-image",
     "numpy",
     "requests",
@@ -21,6 +21,17 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project.optional-dependencies]
+test = [
+    "pytest",
+    "tomli; python_version < '3.11'",
+]
+dev = [
+    "ruff",
+    "basedpyright",
+    "vulture",
+    "deptry",
+    "refurb",
+]
 gui = ["tkinterdnd2"]
 svg = ["vtracer"]
 gpu = [
@@ -32,7 +43,7 @@ lineart-gui = "lineart.main:main"
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E","F","W","I","UP","D","B","C90"]
@@ -44,4 +55,17 @@ convention = "google"
 
 [tool.deptry.per_rule_ignores]
 DEP001 = ["lineart"]
-DEP002 = ["transformers", "accelerate", "xformers", "vtracer", "controlnet-aux"]
+DEP002 = [
+    "transformers",
+    "accelerate",
+    "xformers",
+    "vtracer",
+    "controlnet-aux",
+    "pytest",
+    "tomli",
+    "ruff",
+    "basedpyright",
+    "vulture",
+    "deptry",
+    "refurb",
+]
