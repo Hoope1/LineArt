@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from src import pipeline
+from lineart import pipeline as pipeline
 
 
 def test_recovery_after_failure(tmp_path, monkeypatch) -> None:
@@ -15,7 +15,7 @@ def test_recovery_after_failure(tmp_path, monkeypatch) -> None:
         raise RuntimeError("boom")
 
     monkeypatch.setattr(pipeline, "process_one", failing_process)
-    monkeypatch.setattr("src.lineart.processing.process_one", failing_process)
+    monkeypatch.setattr("lineart.processing.process_one", failing_process)
     monkeypatch.setattr(pipeline, "cleanup_models", lambda: None)
 
     logs: list[str] = []
@@ -36,7 +36,7 @@ def test_recovery_after_failure(tmp_path, monkeypatch) -> None:
 
     # Second run with working process_one
     monkeypatch.setattr(pipeline, "process_one", lambda _p, _o, _c, _log: None)
-    monkeypatch.setattr("src.lineart.processing.process_one", lambda _p, _o, _c, _log: None)
+    monkeypatch.setattr("lineart.processing.process_one", lambda _p, _o, _c, _log: None)
     logs2: list[str] = []
     pipeline.process_folder(tmp_path, tmp_path, cfg, logs2.append, lambda: None)
     assert any("ALLE BILDER ERLEDIGT" in m for m in logs2)

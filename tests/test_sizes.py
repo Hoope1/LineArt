@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from src import pipeline
+from lineart import pipeline as pipeline
 
 
 def test_common_sizes(tmp_path, monkeypatch) -> None:
@@ -19,7 +19,7 @@ def test_common_sizes(tmp_path, monkeypatch) -> None:
         Image.open(path).save(out / path.name)
 
     monkeypatch.setattr(pipeline, "process_one", fake_process_one)
-    monkeypatch.setattr("src.lineart.processing.process_one", fake_process_one)
+    monkeypatch.setattr("lineart.processing.process_one", fake_process_one)
     monkeypatch.setattr(pipeline, "cleanup_models", lambda: None)
 
     cfg = pipeline.PipelineConfig(

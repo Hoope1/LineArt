@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from src import pipeline
+from lineart import pipeline as pipeline
 
 
 def test_batch_fallback(tmp_path, monkeypatch) -> None:
@@ -21,7 +21,7 @@ def test_batch_fallback(tmp_path, monkeypatch) -> None:
         calls["count"] += 1
 
     monkeypatch.setattr(pipeline, "process_one", fake_process_one)
-    monkeypatch.setattr("src.lineart.processing.process_one", fake_process_one)
+    monkeypatch.setattr("lineart.processing.process_one", fake_process_one)
 
     logs: list[str] = []
 

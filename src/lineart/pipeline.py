@@ -7,7 +7,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from .lineart import (
+from .config import PipelineConfig
+from .constants import (
     DEFAULT_CTRL_SCALE,
     DEFAULT_GUIDANCE,
     DEFAULT_MAX_LONG,
@@ -17,33 +18,32 @@ from .lineart import (
     IMG_EXTS,
     MIN_DISK_SPACE,
     MIN_IMG_SIZE,
-    PipelineConfig,
-    cleanup_models,
-    detect_device,
-    detect_dtype,
-    detect_max_long,
-    ensure_dir,
+)
+from .devices import detect_device, detect_dtype, detect_max_long
+from .fs import ensure_dir, find_model_dirs, list_images
+from .image_ops import (
     ensure_rgb,
-    find_model_dirs,
-    get_dexined,
     guided_smooth_if_available,
-    list_images,
-    load_dexined,
-    load_sd15_lineart,
     postprocess_lineart,
-    prefetch_models,
     rescale_edge,
     resize_img,
-    save_svg_vtracer,
+)
+from .models.dexined import get_dexined, load_dexined
+from .models.diffusion import (
+    _autocast_context as diffusion_autocast_context,
+)
+from .models.diffusion import (
+    load_sd15_lineart,
     sd_refine,
 )
-from .lineart import (
+from .prefetch import cleanup_models, prefetch_models
+from .processing import (
     process_folder as _process_folder_impl,
 )
-from .lineart import (
+from .processing import (
     process_one as _process_one_impl,
 )
-from .lineart.models.diffusion import _autocast_context as diffusion_autocast_context
+from .svg import save_svg_vtracer
 
 Config = PipelineConfig
 shutil = _shutil

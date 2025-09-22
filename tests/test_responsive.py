@@ -5,7 +5,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from src import pipeline
+from lineart import pipeline as pipeline
 
 
 def test_progress_moves(tmp_path, monkeypatch) -> None:
@@ -14,7 +14,7 @@ def test_progress_moves(tmp_path, monkeypatch) -> None:
         Image.new("RGB", (32, 32)).save(tmp_path / f"im{i}.png")
 
     monkeypatch.setattr(pipeline, "process_one", lambda _p, _o, _c, _log: None)
-    monkeypatch.setattr("src.lineart.processing.process_one", lambda _p, _o, _c, _log: None)
+    monkeypatch.setattr("lineart.processing.process_one", lambda _p, _o, _c, _log: None)
     monkeypatch.setattr(pipeline, "cleanup_models", lambda: None)
 
     cfg = pipeline.PipelineConfig(

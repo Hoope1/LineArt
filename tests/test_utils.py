@@ -5,8 +5,8 @@ from contextlib import nullcontext
 import torch
 from PIL import Image
 
-from src import pipeline
-from src.pipeline import detect_dtype, ensure_rgb, list_images, resize_img
+from lineart import pipeline as pipeline
+from lineart.pipeline import detect_dtype, ensure_rgb, list_images, resize_img
 
 
 def test_resize_img_limits_and_multiple_of_eight() -> None:
