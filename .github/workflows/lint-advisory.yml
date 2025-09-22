@@ -9,10 +9,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-      - name: Install dev tools
+      - name: Install project extras
         run: |
           python -m pip install --upgrade pip
-          pip install ruff basedpyright vulture deptry refurb
+          pip install ".[dev,test]"
       - name: Ruff format (check)
         run: ruff format --check . || true
         continue-on-error: true
@@ -21,6 +21,9 @@ jobs:
         continue-on-error: true
       - name: BasedPyright
         run: basedpyright --outputjson > pyright_report.json || true
+        continue-on-error: true
+      - name: Pytest
+        run: pytest -q --disable-warnings --maxfail=1 --junitxml=pytest-report.xml || true
         continue-on-error: true
       - name: Vulture
         run: |
@@ -39,6 +42,7 @@ jobs:
           echo "- Ruff format check: nicht-blockierend" >> $GITHUB_STEP_SUMMARY
           echo "- Ruff lint: nicht-blockierend" >> $GITHUB_STEP_SUMMARY
           echo "- BasedPyright: pyright_report.json" >> $GITHUB_STEP_SUMMARY
+          echo "- Pytest: pytest-report.xml" >> $GITHUB_STEP_SUMMARY
           echo "- Vulture: vulture_report.txt" >> $GITHUB_STEP_SUMMARY
           echo "- Refurb: refurb_report.txt" >> $GITHUB_STEP_SUMMARY
           echo "- Deptry: deptry_report.json" >> $GITHUB_STEP_SUMMARY
@@ -52,3 +56,4 @@ jobs:
             vulture_report.txt
             refurb_report.txt
             deptry_report.json
+            pytest-report.xml
